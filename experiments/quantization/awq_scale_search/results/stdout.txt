@@ -1,0 +1,41 @@
+W [512, 1024], act sigma in [0.4, 19.841] (range 49.6x), emergent channels=8, INT4, group=128
+
+Running Demo A: saliency metric comparison ...
+Running Demo B: gamma scale search ...
+Running Demo C: clip search + pipeline (gamma=0.25) ...
+
+## Demo A: protect top-1% channels (remaining output MSE / RTN)
+
+| selector | remaining ratio |
+|---|---|
+| no_protect | 1.000 |
+| random | 0.984 |
+| weight_mag | 0.995 |
+| act_mag | 0.436 |
+| product | 0.436 |
+
+top-1% true error-energy share = 57.2%; share captured by activation ranking = 57.2%; |act∩weight| in top-10 = 0
+
+## Demo B: gamma search summary
+
+| granularity | gamma* | best MSE ratio | gain (1/ratio) |
+|---|---|---|---|
+| group=256 | 0.25 | 0.7374 | 1.356 |
+| group=128 | 0.25 | 0.5996 | 1.668 |
+| group=64 | 0.3 | 0.4668 | 2.142 |
+| group=32 | 0.35 | 0.3516 | 2.845 |
+| per-input-channel | - | 1.377012 | 0.72621 |
+
+## Demo C: clip objective shapes & pipeline comparison
+
+objective valley: weight-MSE alpha*=0.825, act-weighted alpha*=0.825
+| config | weight SNR (dB) | rel output err (%) | MSE ratio | note |
+|---|---|---|---|---|
+| RTN (max-scale) | 18.59 | 11.843 | 1.0 | baseline |
+| clip only (obj=wMSE) | 19.63 | 10.509 | 0.7875 | mean alpha*=0.82 |
+| clip only (obj=act-wMSE) | 19.62 | 10.483 | 0.7835 | mean alpha*=0.82 |
+| scale only (gamma=0.25) | 17.74 | 9.17 | 0.5996 | no clip |
+| scale+clip (obj=wMSE) | 18.94 | 10.928 | 0.8515 | mean alpha*=0.82 |
+| scale+clip (obj=act-wMSE) | 18.39 | 8.809 | 0.5533 | mean alpha*=0.90 |
+
+All outputs saved to /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/awq_scale_search/results

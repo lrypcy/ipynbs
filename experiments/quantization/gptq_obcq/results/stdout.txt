@@ -1,0 +1,47 @@
+/Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/gptq_obcq/run.py:317: UserWarning: Tight layout not applied. The bottom and top margins cannot be made large enough to accommodate all Axes decorations.
+  fig.tight_layout()
+/Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/gptq_obcq/run.py:317: UserWarning: The figure layout has changed to tight
+  fig.tight_layout()
+==================================================================
+合成数据统计
+==================================================================
+层形状                : W = 64 x 256, group=128
+Hessian 条件数(全样本): 1.15e+03
+outlier 权重列        : 5/256 列 x15 幅值
+
+==================================================================
+[主对比 A] RTN vs GPTQ 输出相对 MSE / SNR（group=128）
+==================================================================
+bits method     MSE@cal    MSE@eval  SNR@eval(dB)
+   4    RTN   8.680e-02   8.784e-02         10.56
+   4   GPTQ   5.549e-02   5.699e-02         12.44
+   3    RTN   1.527e-01   1.560e-01          8.07
+   3   GPTQ   1.207e-01   1.251e-01          9.03
+   2    RTN   2.770e-01   2.803e-01          5.52
+   2   GPTQ   2.557e-01   2.595e-01          5.86
+bits=4: GPTQ 相对 RTN 的 eval MSE 降低 35.1%  (1.54x)
+bits=3: GPTQ 相对 RTN 的 eval MSE 降低 19.9%  (1.25x)
+bits=2: GPTQ 相对 RTN 的 eval MSE 降低 7.4%  (1.08x)
+
+==================================================================
+[扫描 B] group size（bits=3, eval 相对 MSE）
+==================================================================
+group=  32: RTN=6.425e-02  GPTQ=4.094e-02
+group=  64: RTN=1.183e-01  GPTQ=7.902e-02
+group= 128: RTN=1.560e-01  GPTQ=1.251e-01
+group= 256: RTN=2.027e-01  GPTQ=1.999e-01
+
+==================================================================
+[扫描 C] dampening vs Cholesky 稳定性（bits=3, 低样本 n_cal=48<256 => H 秩亏）
+==================================================================
+damp_frac=  0e+00: Cholesky 分解失败（H 非正定），GPTQ 无法运行
+damp_frac=  1e-08: cond(H+lamI)=1.79e+09  GPTQ eval MSE=1.389e-01  (RTN 参照 1.560e-01)
+damp_frac=  1e-06: cond(H+lamI)=1.79e+07  GPTQ eval MSE=1.389e-01  (RTN 参照 1.560e-01)
+damp_frac=  1e-04: cond(H+lamI)=1.79e+05  GPTQ eval MSE=1.389e-01  (RTN 参照 1.560e-01)
+damp_frac=  1e-02: cond(H+lamI)=1.79e+03  GPTQ eval MSE=1.393e-01  (RTN 参照 1.560e-01)
+damp_frac=  1e-01: cond(H+lamI)=1.80e+02  GPTQ eval MSE=1.381e-01  (RTN 参照 1.560e-01)
+
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/gptq_obcq/results/gptq_vs_rtn.png
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/gptq_obcq/results/dampening_cholesky.png
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/gptq_obcq/results/results.json
+[done] total 3.8s

@@ -1,0 +1,18 @@
+==============================================================
+[A] 全局 alpha 扫描：盆底 alpha*=0.75, rel.MSE=1.2776e-02
+    MinMax(alpha=1)             rel.MSE=2.0674e-02
+--------------------------------------------------------------
+[B-1] 对照组：朴素 STE 梯度从 MinMax 出发（预期失效）：
+      rel.MSE=2.0222e-02 (平均 alpha 漂移至 1.00，仅降 2.2%)
+      -> 内部舍入残差与 r 不相关，一阶信号为二阶小量；
+         这正是 OmniQuant 用分位数/网格初始化的原因
+--------------------------------------------------------------
+[B-2] 可学习裁剪（逐列黄金分割坐标下降）：
+      rel.MSE=1.2641e-02
+      学到的逐列 alpha：min=0.55 / median=0.77 / max=0.94
+==============================================================
+[C] 相对 MinMax 的输出 MSE 降低：
+    全局网格搜索   : 38.2%
+    朴素 STE-GD   : 2.2%（失效对照）
+    逐列可学习    : 38.9%  <- OmniQuant 核心收益
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/omniq_learnable_clip/results/omniq_clip_basin_and_alpha_hist.png

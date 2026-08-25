@@ -1,0 +1,33 @@
+=== 实验 1+2: naive vs SmoothQuant + alpha sweep ===
+naive  W8A8  MSE = 2.467615e-03  rel_err = 2.38%
+smooth W8A8  MSE = 2.313275e-04  rel_err = 0.73%
+speedup ratio (naive/smooth) MSE = 10.7x
+difficulty conservation max rel dev = 2.40e-16
+alpha* = 0.50  mse@opt = 2.313275e-04
+alpha sweep (every 0.1):
+  alpha=0.0  MSE=2.4346e-03
+  alpha=0.1  MSE=1.1358e-03
+  alpha=0.2  MSE=5.8472e-04
+  alpha=0.3  MSE=3.5283e-04
+  alpha=0.4  MSE=2.5648e-04
+  alpha=0.5  MSE=2.3133e-04
+  alpha=0.6  MSE=2.5687e-04
+  alpha=0.7  MSE=3.5113e-04
+  alpha=0.8  MSE=5.8259e-04
+  alpha=0.9  MSE=1.1378e-03
+  alpha=1.0  MSE=2.4372e-03
+
+=== 实验 3: activation statistic estimation ===
+outlier-channel max|X| vs calibration N:
+  N=   256  max|X|=45.14
+  N=  1024  max|X|=50.30
+  N=  4096  max|X|=59.35
+  N= 16384  max|X|=63.79
+  N= 65536  max|X|=70.04
+max estimator std(outlier) = 3.618
+99.9pct estimator std(outlier) = 2.187
+stability ratio max/pct = 1.7x
+max estimator std(normal channel) = 0.0667
+
+figures: /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/smoothquant_alpha_sweep/results/smoothquant_alpha_sweep_mse.png /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/smoothquant_alpha_sweep/results/smoothquant_difficulty_conservation.png /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/smoothquant_alpha_sweep/results/smoothquant_activation_stat_estimation.png
+results.json saved.

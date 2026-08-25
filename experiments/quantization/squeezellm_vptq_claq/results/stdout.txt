@@ -1,0 +1,16 @@
+4-bit（16 码字，全量化）层输出相对 MSE：
+  RTN 均匀网格         : 3.0074e-01
+  普通 k-means (CLAQ)  : 2.7324e-02  (较 RTN 降 90.9%)
+  敏感度加权 k-means   : 1.6921e-02  (较普通再降 38.1%)
+  >> 加权增益的大小取决于"敏感度 x 幅值分布"的耦合程度：
+     本构造（敏感通道激活能量x10）下再降 38%；若权重与
+     敏感度完全解耦，增益趋近 0——这正是 SqueezeLLM 用完整
+     Fisher 信息而非朴素激活二阶矩估计 h 的原因。
+--------------------------------------------------------------
+dense-and-sparse（其余坐标 4-bit k-means 码本）：
+  无分解       : 2.7324e-02
+  0.2% 坐标保FP16: 1.0745e-02  (较全量化再降 60.7%)
+  1.0% 坐标保FP16: 8.6069e-03  (较全量化再降 68.5%)
+--------------------------------------------------------------
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/squeezellm_vptq_claq/results/squeezellm_sensitivity_and_decomposition.png
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/squeezellm_vptq_claq/results/codebook_size_sweep.png

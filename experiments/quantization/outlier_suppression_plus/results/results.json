@@ -1,0 +1,34 @@
+{
+  "config": {
+    "SEED": 0
+  },
+  "demo_a_gamma_migration": {
+    "absmax_xhat": 29.99,
+    "absmax_ln_output": 149.86,
+    "gamma_amplify_x": 5.0,
+    "rel_err_direct": 0.1363,
+    "rel_err_gamma_migration": 0.0291,
+    "reduction_pct": 78.6
+  },
+  "demo_b_shift_vs_scale": {
+    "absmax_raw": 52.77,
+    "absmax_after_shift": 4.86,
+    "range_shrink_x": 10.9,
+    "rel_err": {
+      "direct": 0.0179,
+      "scale_only": 0.0026,
+      "shift_scale": 0.0013
+    },
+    "outlier_channel": 416,
+    "outlier_mu_sigma": [
+      49.9,
+      0.81
+    ],
+    "effective_levels_fluctuation": {
+      "direct": 1.9,
+      "scale_only": 1.9,
+      "shift_scale": 36.0
+    },
+    "step_shrink_x_by_shift": 18
+  }
+}

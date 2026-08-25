@@ -1,0 +1,11 @@
+合成权重：256x256，低秩骨架(rank16) + 2% 稀疏大值(x8)
+================================================================
+INT2 标量(逐张量): raw=4.5019 | rotated=0.7129  (84%↓)
+INT3 标量(逐张量): raw=2.0177 | rotated=0.3441  (83%↓)
+INT4 标量(逐张量): raw=0.8350 | rotated=0.1722  (79%↓)
+----------------------------------------------------------------
+VQ v=8,C=256 (~1bpw 码字 + 每块RMS):
+   raw=0.3932 | rotated=0.4826
+   同 2-bit 场景对比（旋转基）：VQ 0.4826 vs INT2 0.7129 -> +32.3%
+================================================================
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/quip_aqlm/results/vq_vs_scalar_and_incoherence.png

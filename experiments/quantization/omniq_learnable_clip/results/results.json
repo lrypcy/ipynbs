@@ -1,0 +1,16 @@
+{
+  "rel_mse_minmax": 0.020673955709961993,
+  "rel_mse_global_grid": 0.012776198271267553,
+  "alpha_global_grid": 0.75,
+  "rel_mse_ste_gd": 0.020221999584166817,
+  "alpha_ste_mean": 0.9990901454831919,
+  "rel_mse_learnable": 0.012640818557697777,
+  "alpha_learnable_min": 0.5487107390783046,
+  "alpha_learnable_median": 0.7712829204598844,
+  "alpha_learnable_max": 0.936550581894883,
+  "mse_reduction_pct": {
+    "global_grid": 38.20148185230372,
+    "ste_gd": 2.186113446965521,
+    "learnable": 38.85631402602529
+  }
+}

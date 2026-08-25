@@ -1,0 +1,7 @@
+Walsh-Hadamard: K=256, max|HH^T - I| = 0.00e+00
+旋转前 top-5 通道 max|x| : [45.7 47.2 48.6 51.4 58.4]
+旋转后全体通道最大 max|x| : 14.3  （动态范围收缩 4x）
+------------------------------------------------------------
+INT4 直接量化   输出相对误差 : 0.3421
+INT4 Hadamard 旋转          : 0.1741  （误差降低 49.1%）
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/quarot_spinquant_rotation/results/hadamard_flatten_and_int4_error.png

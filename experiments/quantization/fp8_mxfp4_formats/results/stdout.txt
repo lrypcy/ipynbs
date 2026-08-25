@@ -1,0 +1,9 @@
+INT8 sym     gauss  39.35 dB | laplace  33.28 dB
+FP16  e5m10  gauss  73.69 dB | laplace  73.68 dB
+BF16  e8m7   gauss  55.60 dB | laplace  55.61 dB
+E5M2 (FP8)   gauss  25.56 dB | laplace  25.58 dB
+E4M3 (FP8)   gauss  31.53 dB | laplace  31.53 dB
+MXFP4 grp32  gauss  18.77 dB | laplace  17.98 dB
+NF4 blk64    gauss  20.71 dB | laplace  19.64 dB
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/fp8_mxfp4_formats/results/format_sqnr_comparison.png
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/fp8_mxfp4_formats/results/e4m3_vs_e5m2_levels.png

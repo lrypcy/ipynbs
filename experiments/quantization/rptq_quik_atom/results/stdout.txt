@@ -1,0 +1,11 @@
+[地板] 仅权重量化噪声（激活 fp16）：相对误差 = 0.1153
+[RPTQ] 重排后各组的通道 absmax 上界: [3.35, 3.59, 3.9, 40.56]
+[对照] 层输出相对误差（同一块 W4 权重噪声地板之上，只改变激活处理）:
+  naive per-group A4         : 0.1741   （为地板的 1.51x）
+  RPTQ 重排 + per-group A4   : 0.1385   （为地板的 1.20x）
+  ATOM 双路(离群int8+主int4) : 0.1174   （为地板的 1.02x）
+[置换等价性] ||XP(WP)^T − XW^T||_max = 1.07e-14
+
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/rptq_quik_atom/results/rptq_group_absmax_reorder.png
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/rptq_quik_atom/results/variant_errors_vs_floor.png
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/rptq_quik_atom/results/results.json

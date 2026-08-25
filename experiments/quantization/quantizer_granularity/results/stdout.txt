@@ -1,0 +1,37 @@
+Running Demo A: SNR vs bitwidth ...
+Running Demo B: granularity comparison ...
+Running Demo C: MSE-optimal clipping ...
+
+## Demo A: SNR (dB)
+
+| b | uniform (theory 6.02b) | sine (6.02b+1.76) | Gauss max-scale | Gauss MSE-opt |
+|---|---|---|---|---|
+| 2 | 9.55 (12.0) | 10.17 (13.8) | 0.18 | 6.97 |
+| 3 | 16.9 (18.1) | 17.89 (19.8) | 6.69 | 13.93 |
+| 4 | 23.52 (24.1) | 24.75 (25.8) | 14.35 | 19.24 |
+| 5 | 29.83 (30.1) | 31.22 (31.9) | 20.32 | 24.59 |
+| 6 | 35.99 (36.1) | 37.47 (37.9) | 26.69 | 29.87 |
+| 7 | 42.07 (42.1) | 43.66 (43.9) | 33.0 | 35.1 |
+| 8 | 48.13 (48.2) | 49.74 (49.9) | 39.19 | 40.47 |
+
+## Demo B: INT4 granularity comparison
+
+W [2048, 2048], hot rows=16, point outliers=0.0482%, P99/median row-range=7.59x
+
+| method | weight SNR (dB) | rel output err (%) | note |
+|---|---|---|---|
+| per-tensor sym | 0.97 | 89.436 |  |
+| per-tensor asym | 1.39 | 85.967 |  |
+| per-channel sym | 5.8 | 51.427 |  |
+| per-channel sym + MSE clip | 7.12 | 44.297 | alpha*=0.44 |
+| per-group(128) sym | 15.25 | 17.435 |  |
+| per-channel asym | 7.86 | 40.869 |  |
+
+## Demo C: optimal clipping (INT4)
+
+- Gaussian N(0,1): max|.|/sigma=4.72, M*/sigma=2.36, MSE*/var=0.011954, MSE(full)/var=0.037988, gain=5.02 dB
+- Laplace(0,1): max|.|/sigma=9.23, M*/sigma=3.23, MSE*/var=0.024766, MSE(full)/var=0.131664, gain=7.26 dB
+
+Theory check: Gaussian b=4 analytic u* ~= 2.5 sigma (old-draft §1.3 case B); see results.json for measured value.
+
+All outputs saved to /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/quantizer_granularity/results

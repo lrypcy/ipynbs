@@ -1,0 +1,56 @@
+{
+  "config": {
+    "SEED": 0,
+    "tokens": 128,
+    "d_in": 256,
+    "d_out": 256,
+    "n_outlier_channels": 6,
+    "alpha_threshold": 6.0
+  },
+  "synth": {
+    "normal_range": [
+      -3.49,
+      2.87
+    ],
+    "outlier_amp_range": [
+      1.0,
+      45.0
+    ],
+    "outlier_over_normal_x": 12.9,
+    "rowmax_min_med_max": [
+      29.73,
+      42.29,
+      44.97
+    ]
+  },
+  "rel_err_vs_fp16": {
+    "w_perchannel_rtn_act_fp16": 0.00706,
+    "dual_per_tensor_rtn": 0.024,
+    "llmint8_mixed": 0.00154,
+    "pertensor_err_on_normal_part": 6.452
+  },
+  "collapse_mechanism": {
+    "per_tensor_scale": 0.3541,
+    "levels_for_normal_pm3.5": 18,
+    "equiv_bits_normal": 4.2,
+    "frac_quantized_to_zero_pct": 18.7
+  },
+  "mse_optimal_clip_alpha": {
+    "gauss_n01": 3.918,
+    "activation_with_outliers": 44.36
+  },
+  "memory_bytes": {
+    "fp16": 131072,
+    "int8_rtn": 65540,
+    "llmint8": 69632,
+    "llmint8_compression_vs_fp16": 1.88
+  },
+  "detected_outlier_cols": [
+    5,
+    54,
+    103,
+    152,
+    201,
+    251
+  ]
+}

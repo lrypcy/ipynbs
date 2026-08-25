@@ -1,0 +1,53 @@
+============================================================
+合成数据统计（复刻 LLM.int8() 论文观察）
+============================================================
+激活形状           : X = 256 x 1024,  W = 1024 x 128
+outlier 列数/占比  : 4 / 1024 = 0.391%
+outlier 范数占比   : 33.0%  (论文观察约 30%)
+outlier 幅值倍数   : 197.6x  (论文报告 >=20x)
+阈值 tau           : 6.0  (论文记作 alpha=6.0)
+
+============================================================
+GEMM 输出相对 MSE（参考 = FP16/fp32 全精度）
+============================================================
+FP16 基线                         0.000000
+朴素 RTN (per-tensor 激活)          0.002030
+token-wise (不拆 outlier)         0.001393
+LLM.int8() 混合精度                 0.000003
+
+============================================================
+有效位宽坍塌（正常值可用的 int8 电平数）
+============================================================
+不拆 outlier (scale 被绑架) : 2.98 bit
+混合分解 (clean scale)      : 7.80 bit
+恢复倍数                     : 2.61x
+
+============================================================
+显存带宽账（GEMM 输入访存字节，不含 scale 元数据）
+============================================================
+FP16 全精度                          786432  (1.00x)
+朴素 INT8                           393216  (0.500x)
+LLM.int8() 混合(GEMM层)              396288  (0.504x)
+注: 真实部署需保留完整 fp16 权重副本供 outlier/反量化，
+    实际显存约 2.0x FP16（见文章 §5 批判）。
+
+============================================================
+阈值 tau 扫描（鲁棒性 / 脆弱性）
+============================================================
+  tau=   2.0  n_out=1024  relMSE=0.000000
+  tau=   4.0  n_out=19  relMSE=0.000002
+  tau=   6.0  n_out= 4  relMSE=0.000003
+  tau=  10.0  n_out= 4  relMSE=0.000003
+  tau=  20.0  n_out= 4  relMSE=0.000003
+  tau=  40.0  n_out= 4  relMSE=0.000003
+  tau=  60.0  n_out= 4  relMSE=0.000003
+  tau=  80.0  n_out= 4  relMSE=0.000003
+  tau= 100.0  n_out= 4  relMSE=0.000003
+  tau= 120.0  n_out= 4  relMSE=0.000003
+  tau= 160.0  n_out= 0  relMSE=0.001393
+  tau= 200.0  n_out= 0  relMSE=0.001393
+
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/llmint8_mixture/results/activation_outlier_tail.png
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/llmint8_mixture/results/mixed_decomposition_relmse.png
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/llmint8_mixture/results/gemm_bandwidth_breakdown.png
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/llmint8_mixture/results/results.json

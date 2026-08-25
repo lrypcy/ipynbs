@@ -1,0 +1,36 @@
+{
+  "config": {
+    "SEED": 0,
+    "T": 2048,
+    "d_in": 128,
+    "d_out": 256,
+    "n_outlier": 8,
+    "group": 32
+  },
+  "w4_weight_only_floor_relerr": 0.1153,
+  "variants_relerr": {
+    "naive_per_group_a4": 0.1741,
+    "rptq_reorder_a4": 0.1385,
+    "atom_dualpath": 0.1174
+  },
+  "variants_over_floor_x": {
+    "naive_per_group_a4": 1.51,
+    "rptq_reorder_a4": 1.2,
+    "atom_dualpath": 1.02
+  },
+  "rptq_group_absmax_bounds": {
+    "before_reorder": [
+      35.8,
+      37.37,
+      36.76,
+      40.56
+    ],
+    "after_reorder": [
+      3.35,
+      3.59,
+      3.9,
+      40.56
+    ]
+  },
+  "permutation_equivalence_max_abs_dev": 1.0658141036401503e-14
+}

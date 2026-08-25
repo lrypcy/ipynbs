@@ -1,0 +1,21 @@
+[DemoA] γ 迁移前后的动态范围与量化误差
+  xhat        per-tensor absmax =   29.99
+  LN 输出     per-tensor absmax =  149.86   （γ 放大 5.0x）
+  直接量化 LN 输出   : 输出相对误差 = 0.1363
+  Gamma Migration 后 : 输出相对误差 = 0.0291   （降低 78.6%）
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/outlier_suppression_plus/results/gamma_migration.png
+
+[DemoB] 激活侧 W8A8（per-tensor int8）三种处理对比
+  原始激活       per-tensor absmax =    52.77
+  shift 后       per-tensor absmax =     4.86   （去均值使动态范围缩小 10.9x）
+  直接量化           : 输出相对误差 = 0.0179
+  仅 scale(Smooth型) : 输出相对误差 = 0.0026
+  shift+scale(OS+)   : 输出相对误差 = 0.0013
+
+  离群通道 416 (mu=49.9, 波动σ≈0.81) 的波动项拿到的 int8 有效级数:
+    直接量化    :    1.9 级   (该通道步长 0.4155)
+    仅 scale    :    1.9 级   (步长几乎不变! scale 救的是其他通道)
+    shift+scale :   36.0 级   (去均值后步长缩小 18x)
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/outlier_suppression_plus/results/shift_vs_scale_w8a8.png
+
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/outlier_suppression_plus/results/results.json
