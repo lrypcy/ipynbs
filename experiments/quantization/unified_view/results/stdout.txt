@@ -1,0 +1,75 @@
+MODE=smoke CFG={'d_in': 48, 'd_out': 48, 'n_cal': 1024, 'n_test': 512, 'bits': (8, 4, 3, 2), 'a_bits': 8, 'n_alpha': 21, 'n_gamma': 15, 'n_f2': 41, 'ar_passes': 4, 'qat_steps': 300}
+层形状 W=(48, 48)   校准 1024   测试 512
+激活 absmax/rms = 15.6  (离群通道)
+权重 absmax/rms = 9.9  (重尾)
+
+基线 RTN（WbA8）：
+  W8A8: 输出相对误差 = 0.0732
+  W4A8: 输出相对误差 = 0.3064
+  W3A8: 输出相对误差 = 0.4904
+  W2A8: 输出相对误差 = 0.6914
+
+=== 1 单自由度边际收益 @W4A8（基线 RTN = 0.3064）===
+自由度               输出相对误差       相对 RTN 增益
+RTN               0.3064            0.0%
+F2                0.2161           29.5%
+F4a               0.3087           -0.8%
+F4b               0.3119           -1.8%
+F5a               0.1482           51.6%
+F5b               0.1776           42.0%
+F8                0.3065           -0.1%
+
+  SmoothQuant 最优 alpha = 0.45   AWQ 最优 gamma = 0.86
+  读数：F5（等效变换）是这一层上收益最大的一维——因为它改的是『问题』本身；
+        F2（scale）也有实打实的收益；而 F4（落点规则）在这一层上几乎没有收益，
+        原因见下节注释：per-channel + RTN 已经很接近该网格上的最优落点。
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/unified_view/results/uv_a_single_dof.png
+=== 2 判断一：叠加效率 @W4A8（基线 RTN=0.3064）===
+组合                        Δ单独1      Δ单独2       Δ之和       Δ叠加      叠加效率
+F5a + F5b  (同类)          0.516     0.420     0.937     0.516     0.551
+F5a + F2   (异类)          0.516     0.295     0.811     0.729     0.899
+F5b + F2   (异类)          0.420     0.295     0.715     0.684     0.957
+F4a + F4b  (同类)         -0.008    -0.018    -0.026    -0.014     0.539
+------------------------------------------------------------------------------
+  读数：同类叠加效率 = [0.551, 0.539] —— 明显 < 1，它们争抢同一个自由度；
+        异类叠加效率 = [0.899, 0.957] —— 接近或超过 1，互不冲突。
+        （F4a+F4b 这一对在本探针上 Δ 本身接近 0：per-channel 网格上 RTN 已近最优落点，
+          GPTQ/AdaRound 只能在『H 估计噪声』里找便宜，泛化到测试集后归零甚至略负。）
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/unified_view/results/uv_b_stacking_efficiency.png
+=== 3 判断二：各 bit 下每个自由度的输出相对误差 ===
+  bits       RTN        F2       F4a       F4b       F5a       F5b        F8
+     8    0.0732    0.0684    0.0731    0.0731    0.0134    0.0140    0.0731
+     4    0.3064    0.2161    0.3087    0.3119    0.1482    0.1776    0.3065
+     3    0.4904    0.3362    0.4933    0.4952    0.3253    0.3649    0.4918
+     2    0.6914    0.5560    0.6914    0.6918    0.6199    0.6200    0.6923
+
+相对该 bit 的 RTN 基线的增益（%）:
+  bits        F2       F4a       F4b       F5a       F5b        F8
+     8       6.6       0.2       0.2      81.7      80.9       0.1
+     4      29.5      -0.8      -1.8      51.6      42.0      -0.1
+     3      31.4      -0.6      -1.0      33.7      25.6      -0.3
+     2      19.6       0.0      -0.1      10.3      10.3      -0.1
+------------------------------------------------------------------------------
+  读数：F2（scale）的收益从 8-bit 的 6.6% / 4-bit 的 29.5% 掉到 2-bit 的 19.6% —— 网格间距这一维被榨干了；
+        F5（等效变换）的收益也从 81.7% 掉到 10.3%。
+        所有『在固定网格里做最优』的自由度收益都在随 bit 下降而塌缩 ->
+        低 bit 必须换赛道：F7（保住 outlier）/ F1（非均匀网格）/ F8（改被量化的函数）。
+        F8 在本探针上基本等价于 RTN（增益 -0.1%）：单层线性层 + 校准与测试
+        同分布时，RTN 已经落在网格上的近最优位置，没有可『适应』的空间。
+        F8 的真实价值在多层误差累积 / 校准-推理分布漂移的场景——这正呼应判断二：
+        『2-bit 必须换到 F8』：那时可适配的空间才真正出现。
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/unified_view/results/uv_c_bit_migration.png
+=== 4 判断四：F5 是严格恒等变换 ===
+  ||X W^T - (X/s)(W s)^T||_max = 2.665e-15   （相对输出量级 2.138e-16）
+  -> 融合前：推理图上多一次 per-channel elementwise 乘
+  -> 融合后：s 折进上一层权重，这一步从推理图上完全消失，等价性误差 = 浮点舍入级
+  迁移向量 s 的动态范围 = 18.7x（越接近 1 说明两边难度本来就均衡）
+
+部署代价清单:
+  F5 等效变换 (SmoothQuant/AWQ)       折叠进相邻层权重              0       无
+  F2/F3 scale & 粒度                per-channel scale     极低      int kernel 原生支持
+  F4 落点 (GPTQ/AdaRound)           离线改权重值                0       无（离线完成）
+  F1 非均匀网格 (NF4)                  查表 dequant            中       需 LUT / gather
+  F7 混合精度                         每层不同 kernel           中-高     kernel 分派 + 多 dequant 路径
+  F8 模型适应 (QAT)                   需训练                   离线高     推理无额外代价
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/unified_view/results/uv_d_deployability.png

@@ -1,0 +1,103 @@
+MODE=smoke  CFG={'bits': 4, 'scan_n': 5001, 'fdiff_n': 20000, 'alphas_B': (0.4, 0.2, 0.05, 0.01), 'alphas_D': (0.5, 0.2, 0.1, 0.05, 0.02, 0.01, 0.005), 'l': -3.0, 'u': 3.0, 'n': 128, 'm': 16, 'N': 64, 'noise': 0.001, 'gap_alphas': (0.4, 0.2, 0.05), 'gap_steps': 500, 'gap_step_curve': (150, 300, 500, 800, 1500), 'learn_lambdas': (0.0, 0.001), 'lr': 0.002}
+numpy=2.1.1  matplotlib=3.11.1
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/dsq_soft_quant/results/dsq_construction.png
+[A] max|Q_S(x) - x| vs alpha:
+  alpha   max|Q_S-x|
+  0.001      0.10411
+  0.010      0.07861
+  0.100      0.03928
+  0.300      0.01682
+  0.500      0.00731
+  0.700      0.00241
+  0.900      0.00026
+  0.990      0.00000
+  0.999      0.00000
+------------------------------------------------------------------------------
+  读数：α=0.999 时 max|Q_S-x|=0.0000（趋近恒等）；α=0.001 时=0.1041（趋近硬量化，峰值偏差≈Δ/2=0.2000）。
+        文章 §5.2 写 'α→0.5 → k→0' 是笔误，正确极限是 α→1；本实验用 α→1 验证恒等退化。
+  alpha= 0.40  均值(dQ/dx)=1.00003  峰值=1.1552
+  alpha= 0.20  均值(dQ/dx)=1.00007  峰值=1.3733
+  alpha= 0.05  均值(dQ/dx)=1.00019  峰值=1.9282
+  alpha= 0.01  均值(dQ/dx)=1.00033  峰值=2.6734
+
+ alpha   mean(dQ/dx)      peak   peak/STE
+  0.40       1.00003    1.1552     1.16x
+  0.20       1.00007    1.3733     1.37x
+  0.05       1.00019    1.9282     1.93x
+  0.01       1.00033    2.6734     2.67x
+------------------------------------------------------------------------------
+  读数：所有 α 的梯度均值都 = 1.0000x（与 STE 完全相同）——总梯度质量没多给任何东西；
+        区别只在分布：α=0.40 峰值 1.16x，α=0.01 峰值 2.67x（峰值更高、支撑更窄，趋近真实 Dirac）。
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/dsq_soft_quant/results/dsq_grad_vs_ste.png
+[C] 中心差分 (h=1e-06) 校验 alpha=0.2, b=4, l=-3.0, u=3.0:
+  max|∂Q_S/∂x (analytic) - (numeric)| = 1.232e-07
+  max|∂Q_S/∂α (analytic) - (numeric)| = 7.161e-10
+------------------------------------------------------------------------------
+  读数：两条梯度与中心差分的最大绝对误差都在 ~1e-7 量级——DSQ 的梯度是真导数，
+        不像 STE 那样'假装可导'；这正是它理论上优于 STE 的根。
+  alpha= 0.500  max|Q_S-hard|=0.19999  (占Δ=50.00%)  mean=0.094259
+  alpha= 0.200  max|Q_S-hard|=0.19999  (占Δ=50.00%)  mean=0.082771
+  alpha= 0.100  max|Q_S-hard|=0.19999  (占Δ=50.00%)  mean=0.073697
+  alpha= 0.050  max|Q_S-hard|=0.19998  (占Δ=50.00%)  mean=0.065293
+  alpha= 0.020  max|Q_S-hard|=0.19998  (占Δ=50.00%)  mean=0.055711
+  alpha= 0.010  max|Q_S-hard|=0.19998  (占Δ=49.99%)  mean=0.049665
+  alpha= 0.005  max|Q_S-hard|=0.19998  (占Δ=49.99%)  mean=0.044557
+
+  alpha  max|Q_S-hard|   占 Delta  mean|Q_S-hard|
+  0.500        0.19999    50.00%        0.094259
+  0.200        0.19999    50.00%        0.082771
+  0.100        0.19999    50.00%        0.073697
+  0.050        0.19998    50.00%        0.065293
+  0.020        0.19998    50.00%        0.055711
+  0.010        0.19998    49.99%        0.049665
+  0.005        0.19998    49.99%        0.044557
+------------------------------------------------------------------------------
+  读数：max|Q_S - hard| 死死钉在 Δ/2 = 0.20000，α 从 0.5 降到 0.005（两个数量级）它一动不动；
+        而 mean 偏差从 0.09426 降到 0.04456（对数级收敛）。这正是 DSQ 的拓扑死穴。
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/dsq_soft_quant/results/dsq_max_dev.png
+[E] 任务: n=128 m=16 N=64 (N<n 欠定); l,u=[-0.345,0.271], noise=0.001
+  steps= 150  train(soft)=2.775e-03  deploy(hard)=1.062e-02  gap=5.8 dB
+  steps= 300  train(soft)=5.222e-05  deploy(hard)=7.593e-03  gap=21.6 dB
+  steps= 500  train(soft)=3.372e-07  deploy(hard)=7.548e-03  gap=43.5 dB
+  steps= 800  train(soft)=5.837e-11  deploy(hard)=7.515e-03  gap=81.1 dB
+  steps=1500  train(soft)=9.618e-26  deploy(hard)=7.515e-03  gap=228.9 dB
+
+ steps   train(soft)  deploy(hard)       gap
+   150     2.775e-03     1.062e-02      5.8 dB
+   300     5.222e-05     7.593e-03     21.6 dB
+   500     3.372e-07     7.548e-03     43.5 dB
+   800     5.837e-11     7.515e-03     81.1 dB
+  1500     9.618e-26     7.515e-03    228.9 dB
+------------------------------------------------------------------------------
+  读数：训练步数越多，train(软) loss 越低（软前向≈恒等，网络轻松拟合），而 deploy(硬) loss 几乎不动；
+        gap 随训练预算单调放大——DSQ 的训练 loss 是一句谎言，永远用硬量化前向做最终评估。
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/dsq_soft_quant/results/dsq_train_deploy.png
+  fixed alpha=0.4  train=1.443e-07 deploy=8.682e-03 gap=47.8 dB
+  fixed alpha=0.2  train=3.372e-07 deploy=7.548e-03 gap=43.5 dB
+  fixed alpha=0.05 train=1.502e-05 deploy=5.723e-03 gap=25.8 dB
+  learn alpha (lam=0) a_end=0.271 train=2.348e-07 deploy=8.120e-03 gap=45.4 dB
+  learn alpha (lam=0.001) a_end=0.061 train=5.692e-07 deploy=6.442e-03 gap=40.5 dB
+
+arm                    alpha_end   train(soft)  deploy(hard)       gap
+fixed alpha=0.4            0.400     1.443e-07     8.682e-03     47.8 dB
+fixed alpha=0.2            0.200     3.372e-07     7.548e-03     43.5 dB
+fixed alpha=0.05           0.050     1.502e-05     5.723e-03     25.8 dB
+learn alpha (lam=0)        0.271     2.348e-07     8.120e-03     45.4 dB
+learn alpha (lam=0.001)     0.061     5.692e-07     6.442e-03     40.5 dB
+------------------------------------------------------------------------------
+  读数：所有 arm 的 train(软) loss 都比 deploy(硬) loss 低几十 dB——
+        同一份权重，'训练时看到的自己'和'部署时真实的自己'差了几十 dB。
+        这就是 DSQ 最致命的问题：它的训练前向与部署前向不是同一个函数。
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/dsq_soft_quant/results/dsq_arms_train_deploy.png
+
+==============================================================================
+结论汇总
+==============================================================================
+1) [A] α→1 时 DSQ→恒等（max|Q_S−x|→0）；α→0 时→硬量化。中段恒为恒等映射。
+2) [B] ∂Q_S/∂x 均值 = 1.0000, 1.0001, 1.0002, 1.0003（各 α 均=1.0000，与 STE 完全相同）；峰值随 α 减小从 1.16x 升到 2.67x。
+3) [C] 有限差分校验：∂Q_S/∂x 误差 1.23e-07，∂Q_S/∂α 误差 7.16e-10（真导数，可用）。
+4) [D] max|Q_S−hard| 恒 = Δ/2 = 0.20000，α 从 0.5→0.005 不动（拓扑死穴）。
+5) [E] 所有 arm 的 train(软) 比 deploy(硬) 低 26–48 dB；gap 随训练步数继续放大（见曲线）。
+==============================================================================
+工程 takeaway：DSQ 的梯度是真导数（优于 STE），但训练前向≠部署前向；
+               max|Q_S−hard| 永远是 Δ/2；务必用硬量化前向评估，否则会被 '训练 loss' 骗几十 dB。

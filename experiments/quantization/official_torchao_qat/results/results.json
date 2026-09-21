@@ -1,0 +1,81 @@
+{
+  "meta": {
+    "mode": "smoke",
+    "backend": "qnnpack",
+    "device": "cpu",
+    "torch": "2.10.0",
+    "numpy": "1.26.4",
+    "seed": 0,
+    "bits": 8,
+    "lsq_bits": 4,
+    "fx_available": true,
+    "fx_note": "torch.ao.quantization.quantize_fx 子模块可导入（FX 图模式，已 deprecate）；本实验采用 eager 模式 prepare_qat/convert 以保证 2.10 兼容。",
+    "task_cls": "synthetic 10-class template classification (proxy metric, SIGMA=0.9)",
+    "task_recon": "controlled overdetermined linear-regression weight W(64x128, 2%% outliers)",
+    "honesty": "acc/loss = proxy on synthetic data; recon SNR(dB)/size/latency = real measured numbers"
+  },
+  "exp1_official_qat": {
+    "fp_acc": 0.9921875,
+    "int8_acc": 0.94140625,
+    "fp_loss": 0.23566722869873047,
+    "int8_loss": 0.18707074224948883,
+    "fp_sd": 27635,
+    "int8_sd": 10809,
+    "fp_ms": 2.681792015209794,
+    "int8_ms": 1.2364579597488046,
+    "sd_ratio": 2.5566657415117033,
+    "speedup": 2.1689310130322745,
+    "theo_ratio": 3.9999999999992744,
+    "acc_drop_pp": 5.078125,
+    "backend": "qnnpack",
+    "sigma": 0.9
+  },
+  "exp2_fakequant_ablation": {
+    "weight": {
+      "per_tensor_sym": 33.97966146469116,
+      "per_tensor_asym": 35.42350769042969,
+      "per_channel_sym": 41.38658046722412,
+      "pc_gain_db": 7.406919002532959,
+      "sym_asym_gain_db": 1.4438462257385254
+    },
+    "activation": {
+      "mavg": 25.579099655151367,
+      "hist": 26.11611843109131,
+      "hist_gain_db": 0.5370187759399414
+    }
+  },
+  "exp3_lsq_vs_official": {
+    "rows": [
+      {
+        "bits": 4,
+        "minmax_pt": 9.424392580986023,
+        "minmax_pc": 16.270387172698975,
+        "brute": 15.423886775970459,
+        "lsq": 15.72508454322815,
+        "lsq_gain_db": 6.3006919622421265,
+        "pc_gain_db": 6.845994591712952,
+        "lsq_vs_brute_db": 0.30119776725769043,
+        "s_lsq": 0.44682401418685913,
+        "s_brute": 0.4700645155895574
+      },
+      {
+        "bits": 8,
+        "minmax_pt": 33.97966146469116,
+        "minmax_pc": 41.38658046722412,
+        "brute": 34.1810417175293,
+        "lsq": 34.23100709915161,
+        "lsq_gain_db": 0.2513456344604492,
+        "pc_gain_db": 7.406919002532959,
+        "lsq_vs_brute_db": 0.04996538162231445,
+        "s_lsq": 0.06625378876924515,
+        "s_brute": 0.06660868100976437
+      }
+    ],
+    "lsq_bits": 4,
+    "lsq_gain_db_4bit": 6.3006919622421265,
+    "pc_gain_db_4bit": 6.845994591712952,
+    "lsq_vs_brute_db_4bit": 0.30119776725769043,
+    "lsq_gain_db_8bit": 0.2513456344604492,
+    "pc_gain_db_8bit": 7.406919002532959
+  }
+}

@@ -1,0 +1,285 @@
+{
+  "meta": {
+    "mode": "smoke",
+    "cfg": {
+      "bits": [
+        2,
+        4,
+        8
+      ],
+      "steps": 400,
+      "sweep": 40
+    },
+    "seed": 0
+  },
+  "A_roundtrip": [
+    {
+      "bits": 2,
+      "scheme": "sym",
+      "gran": "per-tensor",
+      "rel_mse": 0.8689771887602081,
+      "out_rel": 0.8688117704079427
+    },
+    {
+      "bits": 2,
+      "scheme": "sym",
+      "gran": "per-channel",
+      "rel_mse": 0.7165388583650327,
+      "out_rel": 0.7107350453034076
+    },
+    {
+      "bits": 2,
+      "scheme": "sym",
+      "gran": "per-group",
+      "rel_mse": 0.7726360044159989,
+      "out_rel": 0.7700149876303574
+    },
+    {
+      "bits": 2,
+      "scheme": "asym",
+      "gran": "per-tensor",
+      "rel_mse": 0.5995640225436872,
+      "out_rel": 0.597363455266572
+    },
+    {
+      "bits": 2,
+      "scheme": "asym",
+      "gran": "per-channel",
+      "rel_mse": 0.3253243429537795,
+      "out_rel": 0.3060585911080587
+    },
+    {
+      "bits": 2,
+      "scheme": "asym",
+      "gran": "per-group",
+      "rel_mse": 0.44967752705130587,
+      "out_rel": 0.43205992273496246
+    },
+    {
+      "bits": 4,
+      "scheme": "sym",
+      "gran": "per-tensor",
+      "rel_mse": 0.13993328870305793,
+      "out_rel": 0.13482322370695624
+    },
+    {
+      "bits": 4,
+      "scheme": "sym",
+      "gran": "per-channel",
+      "rel_mse": 0.017988145852072316,
+      "out_rel": 0.01598483881040297
+    },
+    {
+      "bits": 4,
+      "scheme": "sym",
+      "gran": "per-group",
+      "rel_mse": 0.11692861936904027,
+      "out_rel": 0.11149072647915541
+    },
+    {
+      "bits": 4,
+      "scheme": "asym",
+      "gran": "per-tensor",
+      "rel_mse": 0.13316644570798816,
+      "out_rel": 0.12832834630044526
+    },
+    {
+      "bits": 4,
+      "scheme": "asym",
+      "gran": "per-channel",
+      "rel_mse": 0.012866375785617707,
+      "out_rel": 0.01198907312980215
+    },
+    {
+      "bits": 4,
+      "scheme": "asym",
+      "gran": "per-group",
+      "rel_mse": 0.10453944840151234,
+      "out_rel": 0.10030301456660795
+    },
+    {
+      "bits": 8,
+      "scheme": "sym",
+      "gran": "per-tensor",
+      "rel_mse": 0.002021610111820705,
+      "out_rel": 0.001953822221325254
+    },
+    {
+      "bits": 8,
+      "scheme": "sym",
+      "gran": "per-channel",
+      "rel_mse": 5.1111941374685126e-05,
+      "out_rel": 5.0668806288711487e-05
+    },
+    {
+      "bits": 8,
+      "scheme": "sym",
+      "gran": "per-group",
+      "rel_mse": 0.001234591964777095,
+      "out_rel": 0.001182417042345499
+    },
+    {
+      "bits": 8,
+      "scheme": "asym",
+      "gran": "per-tensor",
+      "rel_mse": 0.0018168936792799027,
+      "out_rel": 0.0017404034216351265
+    },
+    {
+      "bits": 8,
+      "scheme": "asym",
+      "gran": "per-channel",
+      "rel_mse": 4.201748425583775e-05,
+      "out_rel": 3.954053281850479e-05
+    },
+    {
+      "bits": 8,
+      "scheme": "asym",
+      "gran": "per-group",
+      "rel_mse": 0.001032486615281215,
+      "out_rel": 0.0009857104248262737
+    }
+  ],
+  "C_clip": [
+    {
+      "bits": 2,
+      "pct": 1.0,
+      "alpha": 63.99581778852676,
+      "clip_pct": 0.0,
+      "err": 0.7747927160297009,
+      "used_levels": 4.0,
+      "tag": "no-clip(min-max)"
+    },
+    {
+      "bits": 2,
+      "pct": 0.999,
+      "alpha": 14.731822478000991,
+      "clip_pct": 0.1,
+      "err": 0.40852447097413397,
+      "used_levels": 4.0,
+      "tag": "clip@p0.999"
+    },
+    {
+      "bits": 2,
+      "pct": 0.99,
+      "alpha": 5.7308556280711525,
+      "clip_pct": 1.0,
+      "err": 0.2607595008916896,
+      "used_levels": 4.0,
+      "tag": "clip@p0.99"
+    },
+    {
+      "bits": 2,
+      "pct": 0.95,
+      "alpha": 2.8504604546380206,
+      "clip_pct": 5.0,
+      "err": 0.31699345193666556,
+      "used_levels": 4.0,
+      "tag": "clip@p0.95"
+    },
+    {
+      "bits": 4,
+      "pct": 1.0,
+      "alpha": 63.99581778852676,
+      "clip_pct": 0.0,
+      "err": 0.31632931823853155,
+      "used_levels": 13.0,
+      "tag": "no-clip(min-max)"
+    },
+    {
+      "bits": 4,
+      "pct": 0.999,
+      "alpha": 14.731822478000991,
+      "clip_pct": 0.1,
+      "err": 0.07727148175704007,
+      "used_levels": 16.0,
+      "tag": "clip@p0.999"
+    },
+    {
+      "bits": 4,
+      "pct": 0.99,
+      "alpha": 5.7308556280711525,
+      "clip_pct": 1.0,
+      "err": 0.16145951986219778,
+      "used_levels": 16.0,
+      "tag": "clip@p0.99"
+    },
+    {
+      "bits": 4,
+      "pct": 0.95,
+      "alpha": 2.8504604546380206,
+      "clip_pct": 5.0,
+      "err": 0.29147896316926886,
+      "used_levels": 16.0,
+      "tag": "clip@p0.95"
+    },
+    {
+      "bits": 8,
+      "pct": 1.0,
+      "alpha": 63.99581778852676,
+      "clip_pct": 0.0,
+      "err": 0.0019615306687229615,
+      "used_levels": 94.0,
+      "tag": "no-clip(min-max)"
+    },
+    {
+      "bits": 8,
+      "pct": 0.999,
+      "alpha": 14.731822478000991,
+      "clip_pct": 0.1,
+      "err": 0.04761820608287593,
+      "used_levels": 231.0,
+      "tag": "clip@p0.999"
+    },
+    {
+      "bits": 8,
+      "pct": 0.99,
+      "alpha": 5.7308556280711525,
+      "clip_pct": 1.0,
+      "err": 0.15698701416094926,
+      "used_levels": 256.0,
+      "tag": "clip@p0.99"
+    },
+    {
+      "bits": 8,
+      "pct": 0.95,
+      "alpha": 2.8504604546380206,
+      "clip_pct": 5.0,
+      "err": 0.2904195127784906,
+      "used_levels": 256.0,
+      "tag": "clip@p0.95"
+    }
+  ],
+  "D_ste": [
+    {
+      "alpha": 0.4,
+      "mean": 0.9999345353122531,
+      "peak": 1.1552453009332422,
+      "support": 100.0
+    },
+    {
+      "alpha": 0.2,
+      "mean": 0.9998731729833508,
+      "peak": 1.373265360835137,
+      "support": 100.0
+    },
+    {
+      "alpha": 0.05,
+      "mean": 0.9997967096775133,
+      "peak": 1.9281903400682348,
+      "support": 100.0
+    },
+    {
+      "alpha": 0.01,
+      "mean": 0.9997632140905707,
+      "peak": 2.67338627511338,
+      "support": 82.35441139715071
+    },
+    {
+      "alpha": null,
+      "mean": 0.9330167458135467,
+      "peak": 1.0,
+      "support": 93.30167458135466
+    }
+  ]
+}

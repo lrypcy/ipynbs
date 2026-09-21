@@ -1,0 +1,190 @@
+{
+  "meta": {
+    "mode": "smoke",
+    "cfg": {
+      "n_calib": 16,
+      "n_eval": 8,
+      "batch": 4,
+      "img": 224,
+      "bits_grid": [
+        8,
+        6,
+        4
+      ],
+      "reps": 2
+    },
+    "torch": "2.10.0",
+    "seed": 0,
+    "weights": "ImageNet 预训练权重（真实）",
+    "n_params": 11689512,
+    "note": "real resnet18 weights + synthetic images; volumes/latency/scales are real metrics, logits are relative-only"
+  },
+  "A_observers": [
+    {
+      "observer": "MinMax(affine)",
+      "scale": 0.023561494424939156,
+      "zero_point": 0,
+      "rel_mse": 7.873631693655625e-05
+    },
+    {
+      "observer": "Histogram(default act)",
+      "scale": 0.019017163664102554,
+      "zero_point": 0,
+      "rel_mse": 5.7537657994544134e-05
+    },
+    {
+      "observer": "MovingAvgMinMax",
+      "scale": 0.023561494424939156,
+      "zero_point": 0,
+      "rel_mse": 7.873631693655625e-05
+    },
+    {
+      "observer": "MinMax(symmetric)",
+      "scale": 0.04712298884987831,
+      "zero_point": 0,
+      "rel_mse": 0.0003144641232211143
+    },
+    {
+      "observer": "手撸 min-max(affine)",
+      "scale": 0.023561494490679572,
+      "zero_point": 0,
+      "rel_mse": 7.873631693655625e-05
+    },
+    {
+      "observer": "手撸 MSE 最优(affine)",
+      "scale": 0.018766523682050045,
+      "zero_point": 0,
+      "rel_mse": 5.7420635130256414e-05
+    },
+    {
+      "observer": "手撸 min-max(sym)",
+      "scale": 0.04730851256002591,
+      "zero_point": 0,
+      "rel_mse": 0.00031698765815235674
+    },
+    {
+      "observer": "手撸 MSE 最优(sym)",
+      "scale": 0.030999525335385393,
+      "zero_point": 0,
+      "rel_mse": 0.0001813958224374801
+    }
+  ],
+  "B_official_ptq": [
+    {
+      "scheme": "per-channel",
+      "bits": 8,
+      "rel_mse": 0.0019370357040315866,
+      "cosine": 0.9990569353103638,
+      "top1_agree": 0.75
+    },
+    {
+      "scheme": "per-channel",
+      "bits": 6,
+      "rel_mse": 0.014119449071586132,
+      "cosine": 0.9932345747947693,
+      "top1_agree": 1.0
+    },
+    {
+      "scheme": "per-channel",
+      "bits": 4,
+      "rel_mse": 0.46240007877349854,
+      "cosine": 0.7988995909690857,
+      "top1_agree": 0.0
+    },
+    {
+      "scheme": "per-tensor",
+      "bits": 8,
+      "rel_mse": 0.004762718919664621,
+      "cosine": 0.9977045655250549,
+      "top1_agree": 1.0
+    },
+    {
+      "scheme": "per-tensor",
+      "bits": 6,
+      "rel_mse": 0.12774281203746796,
+      "cosine": 0.9367812275886536,
+      "top1_agree": 0.25
+    },
+    {
+      "scheme": "per-tensor",
+      "bits": 4,
+      "rel_mse": 1.3247897624969482,
+      "cosine": 0.33581289649009705,
+      "top1_agree": 0.0
+    }
+  ],
+  "C_storage": [
+    {
+      "bits": 8.0,
+      "granularity": "per-tensor",
+      "fp_bytes": 147456.0,
+      "payload": 36864.0,
+      "meta": 4.0,
+      "total": 36868.0,
+      "compress": 3.9995660193121405,
+      "rel_mse": 0.0010086264228448272
+    },
+    {
+      "bits": 8.0,
+      "granularity": "per-channel",
+      "fp_bytes": 147456.0,
+      "payload": 36864.0,
+      "meta": 256.0,
+      "total": 37120.0,
+      "compress": 3.972413793103448,
+      "rel_mse": 0.00024243269581347704
+    },
+    {
+      "bits": 6.0,
+      "granularity": "per-tensor",
+      "fp_bytes": 147456.0,
+      "payload": 27648.0,
+      "meta": 4.0,
+      "total": 27652.0,
+      "compress": 5.332561840011572,
+      "rel_mse": 0.016365740448236465
+    },
+    {
+      "bits": 6.0,
+      "granularity": "per-channel",
+      "fp_bytes": 147456.0,
+      "payload": 27648.0,
+      "meta": 256.0,
+      "total": 27904.0,
+      "compress": 5.284403669724771,
+      "rel_mse": 0.003982956986874342
+    },
+    {
+      "bits": 4.0,
+      "granularity": "per-tensor",
+      "fp_bytes": 147456.0,
+      "payload": 18432.0,
+      "meta": 4.0,
+      "total": 18436.0,
+      "compress": 7.998264265567368,
+      "rel_mse": 0.22236336767673492
+    },
+    {
+      "bits": 4.0,
+      "granularity": "per-channel",
+      "fp_bytes": 147456.0,
+      "payload": 18432.0,
+      "meta": 256.0,
+      "total": 18688.0,
+      "compress": 7.890410958904109,
+      "rel_mse": 0.06768801808357239
+    }
+  ],
+  "D_int8_operator": {
+    "rel_mse": 0.002812418155372143,
+    "bytes_fp": 43605,
+    "bytes_int8": 15545,
+    "ms_fp": 44.37828063964844,
+    "ms_int8": 39.337873458862305,
+    "speedup": 1.1281311554895603,
+    "availability": {
+      "quantize_dynamic(Linear)": "OK",
+      "resnet18 static convert": "FAILED: Could not run 'quantized::conv2d.new' with arguments from the 'CPU' backend. Thi"
+    }
+  }
+}

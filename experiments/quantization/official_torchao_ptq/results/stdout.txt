@@ -1,0 +1,83 @@
+MODE=smoke CFG={'n_calib': 16, 'n_eval': 8, 'batch': 4, 'img': 224, 'bits_grid': (8, 6, 4), 'reps': 2}
+resnet18：11.69 M 参数；权重来源：ImageNet 预训练权重（真实）
+FP32 logits: shape=(8, 1000)  absmax=7.988
+FP32 state_dict = 45737.3 KB；batch 前向 = 133.1 ms
+====================================================================================
+[A] 官方 observer vs 手撸基线（resnet18 layer1 激活，8-bit）
+                    observer        scale  zero_point      rel.MSE
+              MinMax(affine)     0.023561           0    7.874e-05
+      Histogram(default act)     0.019017           0    5.754e-05
+             MovingAvgMinMax     0.023561           0    7.874e-05
+           MinMax(symmetric)     0.047123           0    3.145e-04
+          手撸 min-max(affine)     0.023561           0    7.874e-05
+           手撸 MSE 最优(affine)     0.018767           0    5.742e-05
+             手撸 min-max(sym)     0.047309           0    3.170e-04
+              手撸 MSE 最优(sym)     0.031000           0    1.814e-04
+------------------------------------------------------------------------------------
+  官方最优：Histogram(default act)（rel.MSE=5.754e-05）
+  手撸 min-max(affine) 7.874e-05 / MSE 最优 5.742e-05：min-max 比 MSE 最优差 +1.37 dB
+  数值一致性：官方 MinMax(affine) scale=0.023561 vs 手撸非对称 min-max scale=0.023561（相对差 0.000%）
+  读数 1：官方 MinMax(affine) 与手撸非对称 min-max 是同一个数 —— 官方 API 没有魔法；
+  读数 2：官方默认激活 observer 是 Histogram，它做的是直方图上的最优裁剪，落点优于 min-max；
+  读数 3：权重侧官方默认 MinMax + per_channel —— 正好对上「粒度收益 > 校准收益」。
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/official_torchao_ptq/results/official_observer_scale_and_error.png
+====================================================================================
+[B] 官方 FakeQuantize 逐层权重量化（真实 resnet18 权重，评估为 FP32 前向）
+        scheme  bits   logits rel.MSE    cosine     top-1 一致率
+   per-channel     8        1.937e-03    0.9991         0.750
+   per-channel     6        1.412e-02    0.9932         1.000
+   per-channel     4        4.624e-01    0.7989         0.000
+    per-tensor     8        4.763e-03    0.9977         1.000
+    per-tensor     6        1.277e-01    0.9368         0.250
+    per-tensor     4        1.325e+00    0.3358         0.000
+  注：样本只有 8 张合成图，top-1 一致率是极弱指标（FP32 的预测本身无语义）；
+      可靠的排序指标是 rel.MSE 与 cosine 相似度。
+  8-bit：per-channel 比 per-tensor 好 +3.91 dB
+  6-bit：per-channel 比 per-tensor 好 +9.57 dB
+  4-bit：per-channel 比 per-tensor 好 +4.57 dB
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/official_torchao_ptq/results/official_ptq_weight_bits.png
+====================================================================================
+[C] 真实存储（layer1.0.conv1，(64, 64, 3, 3)，36864 参数，含位打包）
+ bits    granularity      FP32   payload    meta        合计      压缩比     rel.MSE
+    8     per-tensor    147456     36864       4     36868    4.00x   1.009e-03
+    8    per-channel    147456     36864     256     37120    3.97x   2.424e-04
+    6     per-tensor    147456     27648       4     27652    5.33x   1.637e-02
+    6    per-channel    147456     27648     256     27904    5.28x   3.983e-03
+    4     per-tensor    147456     18432       4     18436    8.00x   2.224e-01
+    4    per-channel    147456     18432     256     18688    7.89x   6.769e-02
+  元数据税（per-channel 8-bit）：0.69%
+  要点：torch.ao 经典栈只有 qint8/quint8 张量类型，4/6-bit 必须自己做 bit-packing；
+        位宽越低、粒度越细，scale 元数据税越重 —— 这正是 01 篇 §7.2 的 16/g bit per element。
+------------------------------------------------------------------------------------
+[C] 4-bit 下元数据税随粒度（同一层）
+     granularity  #scale   payload     meta      压缩比      元数据税
+      per-tensor       1     18432        4    8.00x     0.02%
+ per-channel(64)      64     18432      256    7.89x     1.37%
+   per-group(64)     576     18432     2304    7.11x    11.11%
+   per-group(32)    1152     18432     4608    6.40x    20.00%
+   per-group(16)    2304     18432     9216    5.33x    33.33%
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/official_torchao_ptq/results/official_storage_and_metadata_tax.png
+[D] convert 成功：conv1 = torch.ao.nn.quantized.modules.conv.Conv2d
+====================================================================================
+[D] 真 int8 算子（SmallCNN，qnnpack，CPU）
+  logits rel.MSE      = 2.812e-03
+  state_dict 体积      = FP32 42.6 KB  ->  INT8 15.2 KB（2.81x）
+  前向延迟（batch=4）= FP32 44.38 ms  ->  INT8 39.34 ms（1.13x）
+  读数：Conv 路径能拿到真实加速；但这是无残差的小网，量级不能外推到 resnet18。
+------------------------------------------------------------------------------------
+[D] 本机（arm64 macOS, torch 2.10.0）官方量化栈可用性清单：
+  - quantize_dynamic(Linear)     OK
+  - resnet18 static convert      FAILED: Could not run 'quantized::conv2d.new' with arguments from the 'CPU' backend. Thi
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/official_torchao_ptq/results/official_int8_size_and_latency.png
+
+====================================================================================
+结论汇总
+====================================================================================
+1) [A] 官方默认激活 observer 是 Histogram（rel.MSE=5.754e-05）；手撸 min-max 比 MSE 最优差 +1.37 dB
+2) [B] 8-bit per-channel 权重量化：logits rel.MSE=1.937e-03，与 FP32 的 top-1 一致率 0.750
+3) [B] per-channel 比 per-tensor 好 +3.91 dB（8-bit，真实权重）
+4) [C] 真实压缩比（含 scale 元数据）：8-bit per-channel 3.97x，元数据税 0.69%
+5) [D] 真 int8 算子：体积 2.81x、延迟 1.13x（SmallCNN，CPU，qnnpack）
+6) [D] 本机边界（实测，见上方清单）：quantize_dynamic(Linear)=OK；resnet18 static convert=FAILED: Could not run 'quant
+   另：torch.ao.quantization 在 2.10 已 deprecated，官方迁移目标为 torchao
+====================================================================================

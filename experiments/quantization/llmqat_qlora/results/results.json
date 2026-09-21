@@ -1,0 +1,55 @@
+{
+  "meta": {
+    "mode": "smoke",
+    "numpy": "2.1.1",
+    "seed": 0,
+    "note": "synthetic probe, not real model accuracy"
+  },
+  "A_double_quant": {
+    "meta_no_dq": 0.25,
+    "meta_dq": 0.1259765625,
+    "save_pct": 49.609375,
+    "mat_shape": [
+      512,
+      512
+    ],
+    "block": 64,
+    "dq_group": 256
+  },
+  "B_nf4_vs_int4": [
+    {
+      "dist": "Gaussian",
+      "nf4": 20.70851976890468,
+      "int4": 19.91735952939185,
+      "gain": 0.7911602395128305
+    },
+    {
+      "dist": "Laplace",
+      "nf4": 19.623218592408907,
+      "int4": 17.321716360664297,
+      "gain": 2.3015022317446103
+    },
+    {
+      "dist": "Student-t(df=3)",
+      "nf4": 18.149791600957098,
+      "int4": 14.18472417327748,
+      "gain": 3.9650674276796174
+    }
+  ],
+  "C_qlora": {
+    "base_only": 2.1588907089909237,
+    "qlora": 0.20344215925699327,
+    "full": 0.0013942387799523585,
+    "d": 64,
+    "r": 8,
+    "qlora_vs_base_db": 10.257897006754227,
+    "full_vs_qlora_db": 21.64103798406532
+  },
+  "D_llmqat": {
+    "qat_student": 1.1777963078538893,
+    "ptq_student": 1.5317371169715077,
+    "qat_vs_ptq_db": 1.1411404772235398,
+    "softmax_8bit_mse": 1.6670097386805405e-08,
+    "softmax_spike_err": 0.0
+  }
+}

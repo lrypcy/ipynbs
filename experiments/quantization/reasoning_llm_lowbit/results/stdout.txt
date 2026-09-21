@@ -1,0 +1,86 @@
+MODE=smoke CFG={'chain_lens': (3, 16, 32, 64, 128, 512), 'bits': (2, 3, 4, 6, 8), 'd': 128, 'n_cal': 1500, 'rho_grid': (0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.5, 0.8, 1.0), 'prog_steps': 300, 'n_trial': 2000}
+=== A 长链误差放大 ===
+  链长 L=    3   恒定错误率全链正确率=0.9851   累积模型=0.9762
+  链长 L=   16   恒定错误率全链正确率=0.9229   累积模型=0.7904
+  链长 L=   32   恒定错误率全链正确率=0.8518   累积模型=0.5637
+  链长 L=   64   恒定错误率全链正确率=0.7256   累积模型=0.2564
+  链长 L=  128   恒定错误率全链正确率=0.5264   累积模型=0.0423
+  链长 L=  512   恒定错误率全链正确率=0.0768   累积模型=0.0000
+------------------------------------------------------------------------------
+  读数：eps=0.005 时 PPL/单步指标毫无异常，但 L=512 全链正确率已跌到 0.077（累积模型更低）。
+        => 推理模型必须用『全链正确率 / Pass@1 on long CoT』评测，短回答指标会骗人。
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/reasoning_llm_lowbit/results/rl_a_chain_amplification.png
+=== B 两域形状差异 ===
+  预训练域 absmax/rms = 4.72
+  推理域   absmax/rms = 26.00   <- 重尾
+  bits   PT per-tensor   RS per-tensor     PT g=32     RS g=32     RS 增益
+     2          0.9701          0.9776      0.6587      0.5843      1.67x
+     3          0.4546          0.8268      0.2270      0.2972      2.78x
+     4          0.1948          0.7719      0.0974      0.1500      5.15x
+     6          0.0440          0.2421      0.0220      0.0341      7.09x
+     8          0.0107          0.0591      0.0054      0.0084      7.05x
+------------------------------------------------------------------------------
+  读数：4-bit per-tensor 下推理域误差是预训练域的 3.96x；
+        换 per-group(g=32) 后推理域降 5.15x，预训练域只降 2.00x。
+        => 推理域对粒度/精度的边际收益远高于常识域 —— 混合精度的直接动机。
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/reasoning_llm_lowbit/results/rl_b_domain_shape.png
+  [C] 预训练域 rms=0.350   推理域 rms=1.118  absmax 比=23.0x
+=== C 混合域校准 ===
+  rho=0.00   scale=   0.112   预训练域误差=0.1019   推理域误差=0.8896   最差=0.8896
+  rho=0.05   scale=   0.346   预训练域误差=0.2844   推理域误差=0.7731   最差=0.7731
+  rho=0.10   scale=   0.523   预训练域误差=0.4301   推理域误差=0.6969   最差=0.6969
+  rho=0.15   scale=   0.652   预训练域误差=0.5357   推理域误差=0.6483   最差=0.6483
+  rho=0.20   scale=   3.410   预训练域误差=1.0000   推理域误差=0.3251   最差=1.0000
+  rho=0.25   scale=   3.410   预训练域误差=1.0000   推理域误差=0.3251   最差=1.0000
+  rho=0.30   scale=   3.410   预训练域误差=1.0000   推理域误差=0.3251   最差=1.0000
+  rho=0.50   scale=   3.410   预训练域误差=1.0000   推理域误差=0.3251   最差=1.0000
+  rho=0.80   scale=   3.317   预训练域误差=1.0000   推理域误差=0.3252   最差=1.0000
+  rho=1.00   scale=   3.505   预训练域误差=1.0000   推理域误差=0.3251   最差=1.0000
+------------------------------------------------------------------------------
+  读数：最优 rho* = 0.15（最差域误差 0.6483）
+        纯预训练(rho=0) 推理域误差 = 0.8896；纯推理(rho=1) 预训练域误差 = 1.0000
+        => 100/0（纯预训练）会让推理链完全失守（推理域误差 0.890）；
+           100% 推理域又把 scale 撑到 3.51，预训练域直接被压成 0（误差 1.0）。
+           最优点 rho*=0.15 落在 15%~20% —— 正是文章说的 80/20 量级，
+           但它不是魔数：真正的判据是『两域最差者的误差最小』，拐点位置由两域的
+           幅度差决定。这里 scale 在 rho=0.15->0.20 之间有一个突变（MSE observer 的
+           双峰），实际调参时要在这个拐点附近细扫。
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/reasoning_llm_lowbit/results/rl_c_mixed_domain_calibration.png
+[D] Lipschitz 常数=25.69 -> 自适应步长 lr=7.79e-04
+=== D 渐进量化（FP16->W8->W4->W2 vs 一步到 W2，总步数相同）===
+  RTN (直接 2-bit, 不训练)          : 输出相对误差 = 0.4375
+  QAT 一步到位 (FP16 -> W2)         : 输出相对误差 = 0.6312
+  QAT 渐进 (FP16 -> W8 -> W4 -> W2) : 输出相对误差 = 0.5525
+------------------------------------------------------------------------------
+  读数：渐进比一步到位再降 12.5% —— 这是本节要验证的结论。
+        对照 RTN：本探针（单层线性 + per-channel 非对称）上 RTN 已经很强（0.4375），
+        QAT 未必胜过它——单层线性层的 RTN 本就接近最优。渐进量化的价值体现在
+        「目标 bit 极低、一步到位时前几轮梯度几乎全是量化噪声」的场景。
+        机理：每个阶段只引入可恢复的扰动，权重有时间沿新网格重新收敛。
+  渐进各阶段结束时的误差: W8=0.0060 -> W4=0.1155 -> W2=0.5525
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/reasoning_llm_lowbit/results/rl_d_progressive_quant.png
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/reasoning_llm_lowbit/results/rl_d_progressive_quant.png
+=== E 教师 vs 学生 reweighting ===
+  教师加权 w_T = p_T = 0.720（常数）
+  p_S=0.05:  w_student=1/p_S=20.000   相对放大 27.78x
+  p_S=0.20:  w_student=1/p_S=5.000   相对放大 6.94x
+  p_S=0.35:  w_student=1/p_S=2.857   相对放大 3.97x
+  p_S=0.50:  w_student=1/p_S=2.000   相对放大 2.78x
+  p_S=0.65:  w_student=1/p_S=1.538   相对放大 2.14x
+  p_S=0.80:  w_student=1/p_S=1.250   相对放大 1.74x
+  p_S=0.95:  w_student=1/p_S=1.053   相对放大 1.46x
+------------------------------------------------------------------------------
+  在 p_S=0.41 处放大 3.39x；p_S=0.05 处放大到 27.78x。
+        => 学生概率低 ≠ 题目难，很可能只是量化噪声。用 1/p_S 加权 = 系统性放大噪声样本。
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/reasoning_llm_lowbit/results/rl_e_reward_rectification.png
+[F] 8-bit 单步错误率基准 eps0=0.002；推理域 8-bit 相对误差=0.0591
+=== F 掉点热力图（全链正确率）===
+                    W2        W3        W4        W6        W8
+   short (L=3)     0.904     0.918     0.924     0.976     0.994
+ medium (L=32)     0.341     0.403     0.429     0.769     0.938
+  long (L=128)     0.013     0.026     0.034     0.349     0.774
+            平均     0.419     0.449     0.462     0.698     0.902
+------------------------------------------------------------------------------
+  读数：平均分在 W4 是 0.462（看起来只掉了 53.8%），但长链 L=128 只剩 0.034。
+        => 必须分域 + 分长度评测；只看平均分会把『长推理链崩溃』藏起来。
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/reasoning_llm_lowbit/results/rl_f_length_scan_heatmap.png

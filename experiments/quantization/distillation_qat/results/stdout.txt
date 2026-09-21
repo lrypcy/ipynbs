@@ -1,0 +1,70 @@
+MODE=smoke CFG={'V': 64, 'bits': (2, 3, 4, 6, 8), 'steps': 600, 'lr': 0.5, 'k_grid': (4, 8, 20, 40, 64), 'temp_grid': (0.5, 1.0, 2.0, 4.0), 'beta_grid': 21}
+[A] 2-bit: top1 47->6  变化=True   KL(T||S)=0.6067   尾部质量 0.0408->0.0004   熵 2.0761->2.3069
+[A] 3-bit: top1 47->47  变化=False   KL(T||S)=0.4349   尾部质量 0.0408->0.0183   熵 2.0761->1.3546
+[A] 4-bit: top1 47->47  变化=False   KL(T||S)=0.0616   尾部质量 0.0408->0.0441   熵 2.0761->1.9938
+[A] 6-bit: top1 47->47  变化=False   KL(T||S)=0.0012   尾部质量 0.0408->0.0426   熵 2.0761->2.0856
+[A] 8-bit: top1 47->47  变化=False   KL(T||S)=0.0002   尾部质量 0.0408->0.0411   熵 2.0761->2.0870
+------------------------------------------------------------------------------
+  读数：即使 2-bit，argmax 大概率不变（分类指标看不见掉点）；但 KL 与尾部质量持续恶化，
+        熵单调漂移 -> 采样类任务（生成、推理链）会把这个差异放大成肉眼可见的掉点。
+        => 监督信号必须换成能刻画『形状』的量：KL / JSD，而不是 hard label 或 CE。
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/distillation_qat/results/dq_a_what_quantization_costs.png
+[B] top-4   : KL(T||S)=1.0369   头部20质量误差=0.0026   熵差=-0.7332
+[B] top-8   : KL(T||S)=0.2245   头部20质量误差=0.0138   熵差=-0.1985
+[B] top-20  : KL(T||S)=0.0318   头部20质量误差=0.0308   熵差=+0.1107
+[B] top-40  : KL(T||S)=0.0343   头部20质量误差=0.0340   熵差=+0.1620
+[B] top-64  : KL(T||S)=0.0347   头部20质量误差=0.0329   熵差=+0.1109
+[B] 全词表(V=64): KL(T||S)=0.0347   头部20质量误差=0.0329   熵差=+0.1109
+------------------------------------------------------------------------------
+  读数：最佳 K=20，KL=0.0318，比全词表 KL(0.0347) 低 8.3%
+        K 太小 -> 目标支撑集不足，学生学不到头部结构；K 太大 -> 长尾噪声回流。
+        工程经验：K 取『teacher 分布 95%~99% 质量覆盖』的词数，而不是固定常数。
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/distillation_qat/results/dq_b_topk_support.png
+[C] T=0.5  : KL(T||S)=0.5146   头部20质量误差=0.0173   熵差=-0.8308
+[C] T=1.0  : KL(T||S)=0.0347   头部20质量误差=0.0329   熵差=+0.1109
+[C] T=2.0  : KL(T||S)=0.2839   头部20质量误差=0.1183   熵差=+1.0562
+[C] T=4.0  : KL(T||S)=0.9043   头部20质量误差=0.3357   熵差=+1.7391
+------------------------------------------------------------------------------
+  读数：最佳 T=1.0 (KL=0.0347)，最差 T=4.0 (KL=0.9043)
+        高温度把学生训练成明显过平（熵差 +1.74）——量化学生的动态范围
+        已经被网格改变，高温会抹平主峰。=> 量化 QAT 里温度通常取 1，或只在 warmup 用。
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/distillation_qat/results/dq_c_temperature.png
+[D] KL(T||S)  : KL(T||S)=0.0347   KL(S||T)=0.1120   熵差=+0.1109
+[D] KL(S||T)  : KL(T||S)=0.0191   KL(S||T)=0.0312   熵差=-0.0350
+[D] JSD(b=0.5): KL(T||S)=0.0675   KL(S||T)=0.2058   熵差=+0.1503
+------------------------------------------------------------------------------
+  参照：静态量化（不训练）的 KL(T||S) = 0.0616（4-bit 那一行）
+  读数：KL(S||T) 会让学生去覆盖老师的长尾，在量化学生容量不足时表现为『糊成一片』；
+        KL(T||S) 挑主峰贴，对量化学生更友好；JSD 居中且梯度有界，低 bit 下最稳。
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/distillation_qat/results/dq_d_direction.png
+=== E 广义 JSD（UPQ 目标）===
+2-bit 静态学生: KL(T||S)=0.6067   尾部最小 p_S = 8.353e-10
+  KL(T||S) 的梯度范数 = 3.1623e-01   <- 无界，尾部主导
+  beta=0.05: JSD=0.0248   梯度范数=2.8466e-02
+  beta=0.18: JSD=0.0722   梯度范数=8.1945e-02
+  beta=0.32: JSD=0.1002   梯度范数=1.1210e-01
+  beta=0.45: JSD=0.1118   梯度范数=1.2515e-01
+  beta=0.59: JSD=0.1081   梯度范数=1.2317e-01
+  beta=0.72: JSD=0.0892   梯度范数=1.0573e-01
+  beta=0.86: JSD=0.0544   梯度范数=6.9281e-02
+------------------------------------------------------------------------------
+  读数：JSD 的梯度范数比 KL 低 2.5x 量级——这就是
+        『2-bit 必须换目标』的机理：不是 JSD 更准，是 KL 的梯度在 p_S->0 处无界。
+  JSD 有界性：max JSD = 0.1123 <= log2 = 0.6931
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/distillation_qat/results/dq_e_generalized_jsd.png
+=== F reward rectification: teacher vs student weighting ===
+教师正确率 p_T = 0.72  -> 教师加权 w = p_T = 0.720（常数，学生低于它的地方放大损失）
+   p_S     w=1/p_S (错)       放大倍数 vs w_T
+  0.05          20.000             27.78x
+  0.20           5.000              6.94x
+  0.35           2.857              3.97x
+  0.50           2.000              2.78x
+  0.65           1.538              2.14x
+  0.80           1.250              1.74x
+  0.95           1.053              1.46x
+------------------------------------------------------------------------------
+  读数：p_S=0.41 时 w=1/p_S=2.439，相对教师加权放大 3.39x；
+        p_S=0.05 时放大到 27.78x —— 这些恰恰是量化噪声最大、标签最不可信的样本。
+        => 用学生概率加权 = 给噪声样本加权，训练会被自己的量化误差带跑偏。
+        => 用教师概率加权：w = p_T（常数），只在『学生显著低于老师』处放大，方向正确。
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/distillation_qat/results/dq_f_reward_rectification.png

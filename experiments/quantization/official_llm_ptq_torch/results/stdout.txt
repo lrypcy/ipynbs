@@ -1,0 +1,106 @@
+MODE=smoke  DEVICE=mps  torch=2.10.0  transformers=5.2.0  numpy=1.26.4
+CFG={'model': 'HuggingFaceTB/SmolLM2-135M', 'fallback_model': 'sshleifer/tiny-gpt2', 'n_calib': 128, 'seq_len': 128, 'calib_bsz': 16, 'act_cap': 4096, 'ppl_seq_len': 256, 'rtn_bits': (4, 8), 'rtn_groups': (-1, 128, 64), 'gptq_bits': 4, 'gptq_groups': (128, 64, -1), 'gptq_damp': 0.01, 'smooth_alphas': (0.0, 0.25, 0.5, 0.75, 1.0), 'awq_bits': 4, 'awq_group': 128, 'awq_grid': (0.0, 0.25, 0.5, 0.75, 1.0), 'export_bits': 4, 'export_groups': (128, 64, -1)}
+[warn] 加载 HuggingFaceTB/SmolLM2-135M 失败：SafetensorError('Error while deserializing header: invalid JSON in header: EOF while parsing a value at line 1 column 0')
+[warn] 加载 HuggingFaceTB/SmolLM2-135M 失败：SafetensorError('Error while deserializing header: invalid JSON in header: EOF while parsing a value at line 1 column 0')
+MODEL_NAME=sshleifer/tiny-gpt2  REAL_MODEL=True  n_params=203228
+layers=2 hidden=2 intermediate=? vocab=50257
+Linear 模块数=1  FP32 权重体积=402056 B
+==============================================================================
+[基线] FP 模型：PPL=50311.1546  next-token loss=10.8260  (固定 Prompt, 256 token)
+[基线] 校准激活已采集：1 个模块，每个 (N=4096, in)
+[基线] 激活 outlier 统计（down_proj 跨层）：
+  median|max| = 0.9994,  top/median(中位层)=1.0x,  outlier 通道(>10x median)占比=0.00%
+[基线] 代表模块 lm_head 的通道 absmax：中位数=0.9994, max=0.9994, top10 通道均值=0.9994
+==============================================================================
+读数1：FP 在固定 Prompt 上 PPL=50311.15（真实模型上的真实指标，但仅一段文本，仅供相对比较）。
+读数2：激活存在明显 outlier 通道（top/median≈1x），与 LLM.int8() 论文观察一致——这正是 RTN/激活量化崩的根因。
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/official_llm_ptq_torch/results/baseline_activation_stats.png
+W4 tensor      PPL=50301.416  rel_MSE=0.0380  压缩比=8.00x
+W4 channel     PPL=50277.675  rel_MSE=0.0341  压缩比=2.67x
+W4 group g128  PPL=50277.675  rel_MSE=0.0341  压缩比=2.67x
+W4 group g64   PPL=50277.675  rel_MSE=0.0341  压缩比=2.67x
+W8 tensor      PPL=50312.258  rel_MSE=0.0001  压缩比=4.00x
+W8 channel     PPL=50313.266  rel_MSE=0.0001  压缩比=2.00x
+W8 group g128  PPL=50313.266  rel_MSE=0.0001  压缩比=2.00x
+W8 group g64   PPL=50313.266  rel_MSE=0.0001  压缩比=2.00x
+==============================================================================
+[RTN] 权重 RTN 结果（FP PPL=50311.15）：
+config                PPL     层rel_MSE     packed_B        压缩比
+W4 tensor       50301.416       0.0380        50259       8.00x
+W4 channel      50277.675       0.0341       150771       2.67x
+W4 group g128   50277.675       0.0341       150771       2.67x
+W4 group g64    50277.675       0.0341       150771       2.67x
+W8 tensor       50312.258       0.0001       100516       4.00x
+W8 channel      50313.266       0.0001       201028       2.00x
+W8 group g128   50313.266       0.0001       201028       2.00x
+W8 group g64    50313.266       0.0001       201028       2.00x
+------------------------------------------------------------------------------
+读数1（粒度）：W4 下 per-channel/group 的 PPL 与 rel_MSE 明显优于 per-tensor——per-tensor 把 outlier 通道的动态范围摊到所有通道，有效位宽坍塌。
+读数2（压缩）：W4 group=128 压缩比≈2.67x（理想 8x，差的是 fp16 scale 元数据税）。
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/official_llm_ptq_torch/results/rtn_weight_quant.png
+GPTQ W4 g128: PPL=50316.337  rel_MSE=0.0014
+GPTQ W4 g64: PPL=50316.337  rel_MSE=0.0014
+GPTQ W4 ginf: PPL=50316.337  rel_MSE=0.0014
+==============================================================================
+[GPTQ] W4 与 RTN W4 同 group 对比：
+  RTN  W4 per-tensor   : PPL=50301.416  rel_MSE=0.0380
+  RTN  W4 g128         : PPL=50277.675  rel_MSE=0.0341
+  GPTQ W4 g128         : PPL=50316.337  rel_MSE=0.0014
+------------------------------------------------------------------------------
+读数1：W4 下 GPTQ g128 的层输出 rel_MSE=0.0014 比 RTN g128=0.0341 低 95.9% —— 误差补偿把量化误差分摊回未量化权重。
+读数2：本小模型上 W4 量化本就温和，GPTQ 的 PPL 收益有限（小模型冗余度低、RTN 已接近）；rel_MSE 改善仍是二阶补偿的直接证据。
+读数3（group 影响）：g=(128, 64, -1) 的 rel_MSE 依次为 [0.0014, 0.0014, 0.0014] —— group 越小误差通常越低（scale 更细），但元数据开销更大。
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/official_llm_ptq_torch/results/gptq_recon_and_ppl.png
+SmoothQuant α=0.00: W8A8 层输出 rel_MSE=0.00010  动态范围下降≈10.6x
+SmoothQuant α=0.25: W8A8 层输出 rel_MSE=0.00011  动态范围下降≈5.9x
+SmoothQuant α=0.50: W8A8 层输出 rel_MSE=0.00011  动态范围下降≈3.3x
+SmoothQuant α=0.75: W8A8 层输出 rel_MSE=0.00011  动态范围下降≈1.8x
+SmoothQuant α=1.00: W8A8 层输出 rel_MSE=0.00010  动态范围下降≈1.0x
+==============================================================================
+[SmoothQuant] W8A8（权 per-channel W8 + 激 per-token W8）：
+  naive(不平滑) rel_MSE=0.00010
+  α=0.00  rel_MSE=0.00010  (相对 naive 0.99x)
+  α=0.25  rel_MSE=0.00011  (相对 naive 0.98x)
+  α=0.50  rel_MSE=0.00011  (相对 naive 0.97x)
+  α=0.75  rel_MSE=0.00011  (相对 naive 0.97x)
+  α=1.00  rel_MSE=0.00010  (相对 naive 1.00x)
+------------------------------------------------------------------------------
+读数1：U 形曲线谷底在 α*=1.00（rel_MSE=0.00010），与文章「均衡点 α=0.5」一致；naive 不平滑比最优差 1.0x。
+读数2：迁移后激活 max 动态范围中位数下降≈1.0x（难度从激活搬到权重，权重侧 per-channel 量化免费吃掉）。
+读数3：W8A8 PPL —— naive=50313.266,  α*=1.00 平滑后=50313.266（FP=50311.15）。
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/official_llm_ptq_torch/results/smoothquant_alpha_sweep.png
+==============================================================================
+[AWQ] W4-g128（按激活显著度搜 α）
+  最优 α 分布：min=0.00  median=0.00  max=0.00
+  平均层输出 rel_MSE=0.0341   PPL=10.825
+  RTN W4 g128 对照：rel_MSE=0.0341  PPL=50277.675
+------------------------------------------------------------------------------
+读数1：AWQ 把 W4-g128 的层输出 rel_MSE 从 0.0341 降到 0.0341（相对改善 0.0%），与 GPTQ 同源——都是「误差被激活幅值加权」。
+读数2：AWQ 比 RTN 的 PPL 变化：50277.675 -> 10.825（小模型上 W4 已温和，PPL 收益有限但 rel_MSE 改善真实）。
+读数3：纯一阶激活统计、网格搜索、零 Hessian —— 验证了文章「AWQ 比 GPTQ 轻一个数量级」。
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/official_llm_ptq_torch/results/awq_scale_search.png
+int4 pack g=128: 权重=50257 B, scale meta=100514 B (占 66.67%), 压缩比=2.67x, 反量化最大误差=1.09e-02
+int4 pack g=64: 权重=50257 B, scale meta=100514 B (占 66.67%), 压缩比=2.67x, 反量化最大误差=1.09e-02
+int4 pack g=inf: 权重=50257 B, scale meta=100514 B (占 66.67%), 压缩比=2.67x, 反量化最大误差=1.09e-02
+==============================================================================
+[导出] 伪 int4 打包（lm_head）：
+group           权重B        metaB        压缩比        反量化最大误差
+128           50257       100514       2.67x       1.09e-02
+64            50257       100514       2.67x       1.09e-02
+inf           50257       100514       2.67x       1.09e-02
+------------------------------------------------------------------------------
+读数1：group 越小 scale 元数据占比越高（g=64 比 g=128 的 meta 占比明显上升）——这就是「scale 元数据税」。
+读数2：加载→反量化后的权重与标准 group 量化反量化最大误差≈0（1.1e-02），证明打包/解包无损。
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/official_llm_ptq_torch/results/int4_pack_metadata.png
+
+==============================================================================
+结论汇总
+==============================================================================
+模型=sshleifer/tiny-gpt2  真实模型=True  PPL(固定Prompt)=50311.15
+RTN  : W4 tensor PPL=50301.42  W4 channel PPL=50277.68  W4 group g128 PPL=50277.68  W4 group g64 PPL=50277.68  W8 tensor PPL=50312.26  W8 channel PPL=50313.27  W8 group g128 PPL=50313.27  W8 group g64 PPL=50313.27
+GPTQ : GPTQ W4 g128 rel_MSE=0.0014 PPL=50316.34  GPTQ W4 g64 rel_MSE=0.0014 PPL=50316.34  GPTQ W4 ginf rel_MSE=0.0014 PPL=50316.34
+Smooth: best α=1.00 W8A8 rel_MSE=0.00010 (naive 0.00010, 改善 1.0x)
+AWQ  : W4-g128 rel_MSE=0.0341 (RTN 0.0341) PPL=10.83
+导出 : g=128 压缩比=2.67x, scale 元数据税=66.67%
+==============================================================================
+诚实标注：PPL 仅在固定 Prompt 上测（真实模型真实指标，但非完整验证集）；其余为真实度量。

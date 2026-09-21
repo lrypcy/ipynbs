@@ -1,0 +1,54 @@
+MODE=smoke  BACKEND=qnnpack  DEVICE=cpu
+torch=2.10.0  numpy=1.26.4
+torch.ao.quantization.quantize_fx 子模块可导入（FX 图模式，已 deprecate）；本实验采用 eager 模式 prepare_qat/convert 以保证 2.10 兼容。
+CFG={'NC': 10, 'IMG': 16, 'C1': 16, 'C2': 32, 'HID': 64, 'SIGMA': 0.9, 'BATCH': 64, 'FP_STEPS': 140, 'QAT_STEPS': 80, 'V2_STEPS': 60, 'V3_STEPS': 120, 'VAL': 256, 'BITS': 8, 'LR': 0.03, 'LR_MLP': 0.02, 'LSQ_BITS': 4, 'LSQ_ITERS': 1000, 'LAT_WARM': 10, 'LAT_RUNS': 40, 'LAT_BATCH': 64}
+templates shape: (10, 3, 16, 16)  W_demo: (64, 128)  A_demo: (4000, 16)  DEVICE=cpu  BACKEND=qnnpack
+LSQ g(单标量, Qp=127): nQ=512 -> g=3.922e-03
+FP32  训练后: val_acc=0.9922  val_loss=0.2357
+INT8  转换后: val_acc=0.9414  val_loss=0.1871
+==============================================================================
+[实验1] 官方 QAT 全流程：FP32 vs INT8（8-bit 权重+激活，qnnpack，CPU）
+模型              val_acc     val_loss       sd_bytes         延迟(ms)         备注
+FP32             0.9922       0.2357          27635          2.682      float
+INT8             0.9414       0.1871          10809          1.236       int8
+------------------------------------------------------------------------------
+读数1：INT8 相对 FP32 的 top-1 下降 = 5.08 个百分点（代理指标，合成数据，SIGMA=0.9）
+读数2：state_dict 真实体积 FP32=27635 B，INT8=10809 B，比值=2.56x（小模型因 observer/buffer 元数据，INT8 磁盘体积不一定更小）
+读数3：理论权重压缩比（4B→1B）= 4.0x；真实推理延迟 INT8/FP32 = 1.236 ms vs 2.682 ms，加速比 2.17x
+诚实标注：准确率/损失为合成数据代理指标；体积/延迟为真实度量。
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/official_torchao_qat/results/qat_official_full_flow.png
+==============================================================================
+[实验2] FakeQuantize 内置行为（权重重构 SNR，越高越保真；8-bit）
+config                         recon_SNR(dB)
+W per-tensor 对称                     33.98
+W per-tensor 非对称                    35.42
+W per-channel 对称                    41.39
+A MovingAvgMinMax                   25.58
+A Histogram                         26.12
+------------------------------------------------------------------------------
+读数1（粒度）：per-channel 41.39 dB 比 per-tensor 对称 33.98 dB 高 7.41 dB——离群点只污染自身通道量程，其他通道用满 256 级。
+读数2（对称/非对称）：per-tensor 非对称 35.42 dB vs 对称 33.98 dB，差 1.44 dB（权重近似零均值，对称已足够）。
+读数3（observer）：尖峰+长尾激活上 Histogram 26.12 dB 比 MovingAvgMinMax 25.58 dB 高 0.54 dB——Histogram 的 KL 阈值不被长尾撑大量程。
+诚实标注：以上 dB 是权重/激活量化保真度的真实度量（非随机代理）；W_demo/A_demo 为受控合成分布。
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/official_torchao_qat/results/fakequant_behavior_ablation.png
+==============================================================================
+[实验3] LSQ(学 s) vs 官方固定 min-max：权重重构 SNR(dB)（过定线性回归，受控 W）
+bits    minmax_pt  minmax_pc     brute*        LSQ   LSQ-minmax    pc-minmax
+4            9.42      16.27      15.42      15.73        +6.30        +6.85
+8           33.98      41.39      34.18      34.23        +0.25        +7.41
+------------------------------------------------------------------------------
+读数1（核心）：4-bit 下 LSQ(学 s)=15.73 dB 比 固定 min-max per-tensor=9.42 dB 高 6.30 dB——复现「LSQ 比固定 min-max 好几个 dB」。
+读数2（梯度校验）：LSQ 15.73 dB 与离线网格最优 s* 15.42 dB 仅差 0.30 dB（<0.5），说明 Eq.(3) scale 梯度正确收敛到最优。
+读数3（粒度正交）：per-channel min-max=16.27 dB 比 per-tensor 高 6.85 dB，与可学习 s 的增益 +6.30 dB 正交（粒度收益 >> 只学 s）。
+读数4（低比特现象）：8-bit 下 LSQ 仅比 min-max 高 0.25 dB（min-max 已近最优），而 per-channel 仍有 +7.41 dB——可学习 step 的收益是低比特现象。
+诚实标注：dB 为权重重构保真度的真实度量；这是受控合成权重上的量化器性质比较，绝对值不迁移，只看相对排序。
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/official_torchao_qat/results/lsq_vs_official_fakequant.png
+
+==============================================================================
+结论汇总
+==============================================================================
+1) [实验1] 官方 QAT 全流程：FP32 val_acc=0.9922 -> INT8 val_acc=0.9414（下降 5.08 个百分点，合成代理）；state_dict 体积 FP32=27635 B vs INT8=10809 B（比值 2.56x）；理论权重压缩 4x；推理延迟 INT8=1.236 ms vs FP32=2.682 ms，加速比 2.17x。
+2) [实验2] FakeQuantize 行为（8-bit 重构 SNR）：per-channel 比 per-tensor 高 7.41 dB；对称 vs 非对称差 1.44 dB；激活上 Histogram 比 MovingAvgMinMax 高 0.54 dB。
+3) [实验3] 4-bit 过定线性回归：LSQ(学 s)=15.73 dB 比 固定 min-max=9.42 dB 高 6.30 dB（复现 lsq 目录结论）；LSQ 与离线最优 s* 差 0.30 dB（梯度正确）；per-channel 再 +6.85 dB（与可学习性正交）；8-bit 下 LSQ 仅 +0.25 dB。
+==============================================================================
+诚实标注：分类准确率/损失是合成随机数据上的代理指标，仅用于同任务排序；权重重构 SNR(dB)、state_dict 体积与推理延迟是真实度量的数字。MPS 本机可用但为公平对比未混用（eager 量化算子仅 CPU 后端）。

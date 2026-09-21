@@ -1,0 +1,56 @@
+MODE=smoke  CFG={'bits': (2, 4, 8), 'nf4_block': 64, 'dq_group': 256, 'mat_size': 512, 'qlora_d': 64, 'qlora_r': 8, 'qlora_N': 2000, 'qlora_steps': 400, 'qlora_lr': 0.01, 'delta_scale': 0.3, 'dist_d': 16, 'dist_h': 32, 'dist_N': 1500, 'dist_steps': 300, 'dist_lr': 0.01, 'n_samples': 50000, 'softmax_n': 4096, 'softmax_seq': 64}
+numpy=2.1.1  matplotlib=3.11.1
+================================================================================
+[A] 双重量化元数据税（权重 (512, 512), block=64, DQ group=256 块）
+  不双重量化（每块 FP16 absmax） : 0.2500 bits/weight
+  双重量化（absmax 再量到 8-bit）: 0.1260 bits/weight
+  元数据节省 : 49.6%
+------------------------------------------------------------------------------
+  读数：每块 absmax 从 16-bit(FP16) 压到 8-bit + 一层共享 FP16，元数据直接减半——这就是 QLoRA 能把 65B 模型塞进 48GB 的关键之一。
+================================================================================
+[B] NF4 vs INT4 均匀量化（块级归一化，SQNR dB）
+    distribution        NF4   INT4-uniform   NF4 gain
+        Gaussian      20.71          19.92      +0.79
+         Laplace      19.62          17.32      +2.30
+ Student-t(df=3)      18.15          14.18      +3.97
+------------------------------------------------------------------------------
+  读数：高斯上 NF4 比均匀 INT4 高 0.79 dB；越重的尾（Laplace/Student-t）NF4 的非均匀布点优势越大。
+  （真实 LLM 权重上 bitsandbytes 实测约 20.7 dB；此处为合成分布探针，量级一致。
+   NF4 的本质：把 16 个电平按高斯分位数分配，零点附近密、尾部疏——与等距 INT4 相反。）
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/llmqat_qlora/results/qlora_nf4_vs_int4.png
+================================================================================
+[C] QLoRA 低秩恢复（d=64, r=8, N=2000, steps=400）
+  base-only (NF4 基座, 无适配器) : 2.1589e+00
+  QLoRA     (NF4 基座 + r=8 适配器) : 2.0344e-01
+  full fp16  (从 NF4 基座全参数) : 1.3942e-03
+------------------------------------------------------------------------------
+  读数：QLoRA 比 base-only 低 10.26 dB——r=8 的适配器恢复了低秩微调增量；
+        全 fp16 再低 21.64 dB——全参数还能清掉基座的全秩 4-bit 量化噪声（适配器结构上限）。
+  （合成探针：真实场景里底座更大、增量占主导，QLoRA 与 fp16 微调差距更小。）
+  适配器恢复了 base-only 误差的约 90.6%（剩余是底座全秩量化噪声）。
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/llmqat_qlora/results/qlora_lowrank_recovery.png
+================================================================================
+[D1] LLM-QAT 数据生成式蒸馏（teacher 自产数据，student 4-bit 权重伪量化）
+  QAT  student（训练中伪量化）: 1.1778e+00
+  PTQ  student（训完再量化）  : 1.5317e+00
+------------------------------------------------------------------------------
+  读数：student 用 QAT 比 PTQ 低 1.14 dB——无需真实语料、仅用 teacher 自产数据，量化约束下仍学得更好（LLM-QAT 核心）。
+------------------------------------------------------------------------------
+[D2] 注意力 softmax outlier（seq=64，注入 logit +9 尖峰）
+  8-bit 量化 softmax 的 MSE        = 1.667e-08
+  尖峰处（outlier）量化绝对误差     = 0.000e+00（该处概率=0.989）
+  读数：单个超大 logit 把 softmax 压成近 one-hot尖峰；低 bit 量化在尖峰处相对误差最大——
+        这正是 KV cache / 注意力量化要单独处理 outlier 维度（如分块 / 异常值保护）的原因。
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/llmqat_qlora/results/qlora_llmqat_distill_and_softmax_outlier.png
+
+================================================================================
+结论汇总
+================================================================================
+1) [A] 双重量化元数据税：0.2500 -> 0.1260 bits/weight（省 49.6%）
+2) [B] 高斯上 NF4 SQNR=20.71 dB vs INT4 19.92 dB（NF4 +0.79 dB）
+3) [C] QLoRA 比 base-only 低 10.26 dB；全 fp16 再低 21.64 dB
+4) [D] LLM-QAT 数据生成式蒸馏：QAT 比 PTQ 低 1.14 dB；softmax 8-bit MSE=1.67e-08，尖峰误差 0.00e+00
+================================================================================
+工程 takeaway：NF4 是非均匀 4-bit（零附近密）；双重量化减半元数据税；
+              QLoRA = 冻结 4-bit 基座 + fp16 低秩适配器，恢复的是低秩适配增量；
+              LLM-QAT 用 teacher 自产数据做 data-free 蒸馏，且 softmax outlier 是量化脆弱点。

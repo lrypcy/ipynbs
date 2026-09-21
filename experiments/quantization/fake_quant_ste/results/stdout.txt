@@ -1,0 +1,69 @@
+MODE=smoke CFG={'bits': (2, 4, 8), 'steps': 400, 'sweep': 40}
+权重 (256, 128): rms=2.0036, max/rms=19.72
+====================================================================================
+[A] round-trip 误差（4-bit 重点关注）
+ bits  scheme   granularity    W rel.MSE   out rel.MSE
+    2     sym    per-tensor    8.690e-01     8.688e-01
+    2     sym   per-channel    7.165e-01     7.107e-01
+    2     sym     per-group    7.726e-01     7.700e-01
+    2    asym    per-tensor    5.996e-01     5.974e-01
+    2    asym   per-channel    3.253e-01     3.061e-01
+    2    asym     per-group    4.497e-01     4.321e-01
+    4     sym    per-tensor    1.399e-01     1.348e-01
+    4     sym   per-channel    1.799e-02     1.598e-02
+    4     sym     per-group    1.169e-01     1.115e-01
+    4    asym    per-tensor    1.332e-01     1.283e-01
+    4    asym   per-channel    1.287e-02     1.199e-02
+    4    asym     per-group    1.045e-01     1.003e-01
+    8     sym    per-tensor    2.022e-03     1.954e-03
+    8     sym   per-channel    5.111e-05     5.067e-05
+    8     sym     per-group    1.235e-03     1.182e-03
+    8    asym    per-tensor    1.817e-03     1.740e-03
+    8    asym   per-channel    4.202e-05     3.954e-05
+    8    asym     per-group    1.032e-03     9.857e-04
+  4-bit 对称 per-tensor 1.348e-01 -> per-group(32) 1.115e-01 -> per-channel 1.598e-02
+  粒度收益 +9.26 dB；对称 vs 非对称(per-tensor) +0.21 dB
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/fake_quant_ste/results/fq_roundtrip_error.png
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/fake_quant_ste/results/fq_grid_snapping.png
+====================================================================================
+[B] 网格吸附：4-bit 间距 s=5.64432，电平数 16；
+    量化后权重直方图从连续分布变成等间距离散峰（梳齿）—— 这就是 loss 曲面不连续的来源。
+====================================================================================
+[C] 不模拟裁剪 vs 模拟裁剪（重尾激活；真实硬件语义：超范围 saturate）
+ bits               方案     alpha      截断%       用到的码字数      rel.MSE
+    2 no-clip(min-max)    63.996   0.000%            4    7.748e-01
+    2      clip@p0.999    14.732   0.100%            4    4.085e-01
+    2       clip@p0.99     5.731   1.000%            4    2.608e-01
+    2       clip@p0.95     2.850   5.000%            4    3.170e-01
+    4 no-clip(min-max)    63.996   0.000%           13    3.163e-01
+    4      clip@p0.999    14.732   0.100%           16    7.727e-02
+    4       clip@p0.99     5.731   1.000%           16    1.615e-01
+    4       clip@p0.95     2.850   5.000%           16    2.915e-01
+    8 no-clip(min-max)    63.996   0.000%           94    1.962e-03
+    8      clip@p0.999    14.732   0.100%          231    4.762e-02
+    8       clip@p0.99     5.731   1.000%          256    1.570e-01
+    8       clip@p0.95     2.850   5.000%          256    2.904e-01
+  2-bit：不裁剪 7.748e-01（只用 4 个码字） -> 裁剪 @0.99 2.608e-01，改善 +4.73 dB
+  4-bit：不裁剪 3.163e-01（只用 13 个码字） -> 裁剪 @0.999 7.727e-02，改善 +6.12 dB
+  8-bit：不裁剪 1.962e-03（只用 94 个码字） -> 裁剪 @0.999 4.762e-02，改善 -13.85 dB
+  读数：不裁剪时 min-max scale 被离群值撑大，16 个码字里只用了一小部分 —— 
+        这就是「伪量化必须模拟 clamp」的定量理由（硬件上溢出的码字根本不存在）。
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/fake_quant_ste/results/fq_clip_saturation.png
+====================================================================================
+[D] STE vs 软量化梯度（4-bit 全程扫描）
+                类型         均值         峰值       有效支撑(>5%峰)
+    soft alpha=0.4    0.99993     1.1552          100.00%
+    soft alpha=0.2    0.99987     1.3733          100.00%
+   soft alpha=0.05    0.99980     1.9282          100.00%
+   soft alpha=0.01    0.99976     2.6734           82.35%
+               STE    0.93302     1.0000           93.30%
+  读数：均值都是 1.0（梯度总质量相同）；差别在形状 —— STE 均匀铺开，软量化集中在决策边界。
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/fake_quant_ste/results/fq_ste_bias.png
+
+====================================================================================
+结论汇总
+1) [A] 4-bit：per-tensor 1.348e-01 -> per-channel 1.598e-02，粒度收益 +9.26 dB
+2) [B] 网格吸附：权重质量塌缩到 16 个格点（间距 5.64432）
+3) [C] 4-bit 不裁剪 3.163e-01（只用到 13/16 个码字）-> 裁剪@0.999 7.727e-02，改善 +6.12 dB
+4) [D] STE 均值 0.9330（与软量化一致），但形状恒为 1 —— 峰值仅为 soft(a=0.05) 的 0.52 倍
+====================================================================================

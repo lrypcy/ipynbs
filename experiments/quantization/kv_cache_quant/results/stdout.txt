@@ -1,0 +1,56 @@
+MODE=smoke CFG={'seqs': (128, 512), 'bits': (2, 4, 8), 'sweep': 40}
+attention: seq=512, d=128, heads=4；K/V 有 8 个离群通道
+====================================================================================
+[A] KV 量化 -> 注意力输出误差（seq=512）
+ bits   granularity         只量化K         只量化V          K+V
+    2    per-tensor    1.216e+00    8.992e-01    1.116e+00
+    2   per-channel    1.571e+00    6.599e-01    2.442e+00
+    2     per-token    8.333e-01    6.127e-01    1.182e+00
+    4    per-tensor    3.893e-01    1.799e-01    5.817e-01
+    4   per-channel    4.673e-02    1.697e-02    6.344e-02
+    4     per-token    2.650e-01    4.914e-02    3.164e-01
+    8    per-tensor    2.136e-03    5.908e-04    2.716e-03
+    8   per-channel    2.185e-04    5.358e-05    2.775e-04
+    8     per-token    1.068e-03    1.500e-04    1.222e-03
+  4-bit/per-tensor：V 的误差是 K 的 0.46 倍（V 直接参与加权求和，通常更敏感）
+  4-bit/per-channel：V 的误差是 K 的 0.36 倍（V 直接参与加权求和，通常更敏感）
+  4-bit/per-token：V 的误差是 K 的 0.19 倍（V 直接参与加权求和，通常更敏感）
+  4-bit 粒度收益（KV 同时量化）：per-tensor 5.817e-01 -> per-channel 6.344e-02，+9.62 dB
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/kv_cache_quant/results/kv_cache_sensitivity.png
+====================================================================================
+[B] 序列长度与误差累积（per-channel）
+    seq  bits   output rel.MSE    前25% token    后25% token
+    128     2        1.765e+00     1.347e+00     1.438e+00
+    128     4        4.987e-02     2.562e-01     2.152e-01
+    128     8        1.349e-04     1.460e-02     1.095e-02
+    512     2        2.442e+00     1.767e+00     1.653e+00
+    512     4        6.344e-02     2.597e-01     2.544e-01
+    512     8        2.775e-04     1.635e-02     1.635e-02
+  读数：KV 量化误差不会随 token 位置单调放大（每个 token 的 attention 都是独立的加权平均），
+        但序列变长会让「被污染的 KV」总数增加 —— 长上下文才是 KV 量化的真正压力来源。
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/kv_cache_quant/results/kv_cache_sequence_scaling.png
+====================================================================================
+[C] 显存账本（模型：L=32, d=4096, heads=32；权重约 2.15 B 参数）
+ batch     seq      权重@4bit      KV@fp16     KV/权重
+     1    2048       1.0 GB     512.0 MB     0.50x
+     1    8192       1.0 GB       2.0 GB     2.00x
+     1   32768       1.0 GB       8.0 GB     8.00x
+     8    2048       1.0 GB       4.0 GB     4.00x
+     8    8192       1.0 GB      16.0 GB    16.00x
+     8   32768       1.0 GB      64.0 GB    64.00x
+    32    2048       1.0 GB      16.0 GB    16.00x
+    32    8192       1.0 GB      64.0 GB    64.00x
+    32   32768       1.0 GB     256.0 GB   256.00x
+  batch=1/seq=2048：KV 是权重(4-bit)的 0.50x
+  batch=32/seq=32768：KV 是权重的 256.00x —— 这时权重位宽已经不是主要矛盾
+  读数：权重量化省的是「一次性」的显存与带宽，KV cache 随 batch×seq 线性增长；
+        长上下文 + 大 batch 下，KV 才是瓶颈 —— 这就是 24 篇的核心论点。
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/kv_cache_quant/results/kv_cache_memory_ledger.png
+
+====================================================================================
+结论汇总
+1) [A] 4-bit：KV 同时量化时 per-tensor 5.817e-01 -> per-channel 6.344e-02（+9.62 dB）
+   4-bit/per-channel：V 的误差是 K 的 0.36 倍（V 更敏感）
+2) [B] seq 从 128 到 512：4-bit 输出误差 4.987e-02 -> 6.344e-02
+3) [C] batch=1/seq=2048 时 KV 是 W4 权重的 0.50x；batch=32/seq=32768 时 256.00x —— 长上下文大 batch 下 KV 才是瓶颈
+====================================================================================

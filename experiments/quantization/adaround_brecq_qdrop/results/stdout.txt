@@ -1,0 +1,47 @@
+MODE=smoke CFG={'steps': 300, 'bits': (2, 4), 'sweep': 40}
+MLP: [(96, 128), (64, 96)]，校准样本 (256, 128)
+====================================================================================
+[A] RTN vs AdaRound（**层输出**重构 rel.MSE，即重构目标本身）
+ bits  layer           RTN     AdaRound(离散)       改善     AdaRound(松弛)       改善
+    2      0     8.399e-01        6.794e-01   +0.92dB        8.667e-01   -0.14dB
+    2      1     8.615e-01        8.462e-01   +0.08dB        7.670e-01   +0.50dB
+    4      0     2.648e-02        1.862e-02   +1.53dB        2.126e-02   +0.95dB
+    4      1     2.714e-02        1.776e-02   +1.84dB        1.277e-02   +3.27dB
+  2-bit 平均：RTN 8.507e-01 -> 离散 7.628e-01（+0.47 dB）；松弛 8.168e-01（+0.18 dB）
+  4-bit 平均：RTN 2.681e-02 -> 离散 1.819e-02（+1.68 dB）；松弛 1.702e-02（+1.97 dB）
+  注：两版实现各有胜负 —— 松弛版依赖退火与正则调度，离散版是确定性的贪心；
+      两者都稳定优于 RTN，说明收益来自「学舍入方向」本身，而不是某个具体优化器。
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/adaround_brecq_qdrop/results/adaround_vs_rtn.png
+====================================================================================
+[B] 端到端输出误差：逐层重构 vs 顺序 block 重构
+ bits                              arm   output rel.MSE
+    2                              RTN        1.048e+00
+    2              AdaRound(layerwise)        1.018e+00
+    2     BRECQ(blockwise, sequential)        1.075e+00
+    4                              RTN        5.146e-02
+    4              AdaRound(layerwise)        4.482e-02
+    4     BRECQ(blockwise, sequential)        3.520e-02
+  2-bit：AdaRound(layerwise) 相对 RTN +0.13 dB
+  2-bit：BRECQ(blockwise, sequential) 相对 RTN -0.11 dB
+  4-bit：AdaRound(layerwise) 相对 RTN +0.60 dB
+  4-bit：BRECQ(blockwise, sequential) 相对 RTN +1.65 dB
+====================================================================================
+[C] QDrop（b=4）：校准集内 vs 校准集外的输出误差
+ drop prob      in-calib   out-of-calib
+      0.00     3.309e-02      4.643e-02
+      0.25     3.305e-02      4.638e-02
+      0.50     3.520e-02      4.784e-02
+      0.75     3.520e-02      4.784e-02
+  泛化最好：drop_p=0.25（集外 4.638e-02）；不丢弃时 4.643e-02
+  读数：本任务上 QDrop 的收益只有 +0.004 dB —— 
+        它缓解的是「激活量化让重构目标过拟合校准集」，而这里 8-bit 激活误差本身就很小；
+        真实 W4A4 场景下该效应会显著放大（论文报告的是低比特激活）。
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/adaround_brecq_qdrop/results/brecq_block_and_qdrop.png
+
+====================================================================================
+结论汇总
+1) [2-bit] 学舍入方向的收益：离散坐标下降 +0.47 dB，可微松弛 +0.18 dB
+1) [4-bit] 学舍入方向的收益：离散坐标下降 +1.68 dB，可微松弛 +1.97 dB
+2) [4-bit] 端到端：RTN 5.146e-02 -> 逐层 4.482e-02 -> block 3.520e-02
+3) QDrop：集外误差在 drop_p=0.25 时最好（4.638e-02）
+====================================================================================

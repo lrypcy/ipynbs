@@ -1,0 +1,85 @@
+MODE=smoke CFG={'L': 32, 'lam_grid': 500, 'bit_budget_ratio': 0.7, 'n_experts': 16, 'n_moe_tok': 4000}
+=== A 敏感度长尾 ===
+单元数 L=32   总参数=3658
+预算 = 统一 4-bit 体积的 70% = 1280 B
+  统一 2-bit: 体积=     914B  误差=  10.6656  <= 预算 OK
+  统一 3-bit: 体积=    1372B  误差=   4.2521  超预算
+  统一 4-bit: 体积=    1829B  误差=   1.9083  超预算
+  统一 6-bit: 体积=    2744B  误差=   0.4454  超预算
+  统一 8-bit: 体积=    3658B  误差=   0.1135  超预算
+-> 预算内能塞下的最大统一 bit = 2-bit，误差基线 base_err = 10.6656
+  top-1 单元占敏感度总和的 16.8%
+  top-2 单元占敏感度总和的 31.0%
+  top-4 单元占敏感度总和的 43.3%
+  top-8 单元占敏感度总和的 63.4%
+  敏感度 max/min = 84.6x  (长尾)
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/mixed_precision/results/mp_a_sensitivity_tail.png
+=== B 三种求解器 vs 统一基线 ===
+方法                         体积(B)          误差        相对基线     预算内
+统一 2-bit 基线                  914     10.6656       1.000       是
+边际收益贪心                      1280      2.8871       0.271       是
+拉格朗日扫描                      1274      2.9155       0.273       是
+精确 DP                       1280      2.8852       0.271       是
+拉格朗日 lambda* = 0.006392   与精确 DP 的相对差距 = +1.05%
+贪心 vs 精确 DP 差距           = +0.07%
+bit 分布  贪心   : {4: 2, 6: 6, 3: 10, 2: 14}
+bit 分布  拉格朗日: {4: 3, 6: 5, 3: 10, 2: 14}
+bit 分布  精确 DP : {4: 4, 6: 4, 3: 11, 2: 13}
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/mixed_precision/results/mp_b_bit_allocation.png
+最低可行预算比 = 0.500（全部单元给最低 bit=2）
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/mixed_precision/results/mp_c_pareto_frontier.png
+=== C Pareto 前沿 ===
+前沿点数=107  预算点误差/基线 = 0.273
+若预算放宽到统一 4-bit 的 100%，混合精度误差 = 0.9489（0.0890 x 基线，相对统一 4-bit 的 1.9083 又低 50.3%）
+=== D 敏感度度量：谁能预测真实的量化代价 ===
+（实测探针：32 个单元；真值 = W2A8 的输出相对误差；重建误差类度量 = W3A8 的实测误差）
+度量                        Spearman vs 真值
+Hessian 类                          0.051
+激活幅度类                              0.018
+权重幅度                              -0.096
+重建误差类(W3 实测)                       0.424
+------------------------------------------------------------------------------
+  读数：重建误差类(W3 实测) 与真值最相关（rho=+0.424）。
+        Hessian / 激活幅度刻画的是『误差被放大的倍率』，但一个单元量化代价高不高
+        还取决于它自己难不难（离群通道、权重重尾）——这两件事与倍率并不完全相关。
+        => 文章 §3.4 的判断：重建误差类『最朴素但最可靠』，因为它直接量你要优化的东西。
+
+实测探针上端到端（预算 = 统一 4-bit 的 70%，统一 2-bit 基线 = 25.8813）:
+  边际收益贪心  : 14.4492  (0.558 x 基线)
+  拉格朗日扫描  : 14.4278  (0.557 x 基线)
+  精确 DP       : 14.4278  (0.557 x 基线)
+  用 Hessian 类              排序驱动贪心 -> 16.7152  (0.646 x 基线)
+  用 激活幅度类                  排序驱动贪心 -> 16.7152  (0.646 x 基线)
+  用 权重幅度                   排序驱动贪心 -> 17.0974  (0.661 x 基线)
+  用 重建误差类(W3 实测)           排序驱动贪心 -> 16.7218  (0.646 x 基线)
+-> 排序型贪心假设『误差下降速率各单元相同』，实测数据上这一假设不成立；
+   只有在拿到逐单元误差表 E_l(b) 之后，贪心/拉格朗日才解得准。
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/mixed_precision/results/mp_d_metric_agreement.png
+=== E MoE 路由动力学 vs 频率 ===
+专家数=16   最脆弱(top 4)专家 = [0, 1, 6, 7]
+它们的调用频率排名(0=最高频) = [9, 2, 11, 0]
+单次样本 Spearman(脆弱度, 频率) = +0.335
+300 轮 bootstrap: 均值 +0.012  std 0.269  95% 区间 [-0.513, +0.568]
+脆弱专家的频率排名散布在 0 ~ 11（全区间 0~15）
+  -> rho 的置信区间覆盖 0：脆弱度与调用频率在统计上无关。
+     『高频专家更重要』的诊断因此是错的——高频只说明它常被用到，不说明它对扰动敏感。
+  router W8-bit: token 路由改道率 = 1.475%
+  router W6-bit: token 路由改道率 = 5.500%
+  router W4-bit: token 路由改道率 = 20.025%
+  router W3-bit: token 路由改道率 = 41.675%
+  router W2-bit: token 路由改道率 = 82.800%
+-> router 是『小矩阵 + 高杠杆』的典型：把 router 单独留在 8/16-bit 是性价比最高的一步
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/mixed_precision/results/mp_e_moe_router.png
+=== F 硬件可行性校验 ===
+统一 4-bit 体积 = 1829B   混合精度体积 = 1274B
+相对统一 4-bit 显存下降 = 30.3%
+  额外开销 10% -> 净收益 +0.203  成立
+  额外开销 20% -> 净收益 +0.103  成立
+  额外开销 30% -> 净收益 +0.003  成立
+packing 效率（理论 bit/8 vs 实际对齐到 32-bit word 的占用）:
+  2-bit: 每 word 装 16 个，占用 32/32 bit，packing 效率 100.0%
+  3-bit: 每 word 装 10 个，占用 30/32 bit，packing 效率 93.8%
+  4-bit: 每 word 装  8 个，占用 32/32 bit，packing 效率 100.0%
+  6-bit: 每 word 装  5 个，占用 30/32 bit，packing 效率 93.8%
+  8-bit: 每 word 装  4 个，占用 32/32 bit，packing 效率 100.0%
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/mixed_precision/results/mp_f_hardware_check.png

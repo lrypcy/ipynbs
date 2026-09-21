@@ -1,0 +1,158 @@
+{
+  "meta": {
+    "mode": "smoke",
+    "seed": 0,
+    "numpy": "2.1.1",
+    "task": "synthetic heavy-tail activation + underdetermined linear regression (NOT real model accuracy)",
+    "bits": 4,
+    "l": -3.0,
+    "u": 3.0
+  },
+  "A_construction": {
+    "max_dev_at_alpha_0.999": 0.002788719010468732,
+    "note": "alpha->1 => Q_S -> identity; alpha->0 => Q_S -> hard"
+  },
+  "B_gradient_vs_STE": [
+    {
+      "alpha": 0.4,
+      "grad_mean": 1.0000310100592482,
+      "grad_peak": 1.1552453009332422
+    },
+    {
+      "alpha": 0.2,
+      "grad_mean": 1.0000745918069651,
+      "grad_peak": 1.373265360835137
+    },
+    {
+      "alpha": 0.05,
+      "grad_mean": 1.0001855660584271,
+      "grad_peak": 1.9281903400682345
+    },
+    {
+      "alpha": 0.01,
+      "grad_mean": 1.0003345954671434,
+      "grad_peak": 2.67338627511338
+    }
+  ],
+  "C_finite_diff": {
+    "alpha": 0.2,
+    "dx_max_abs_err": 1.2322760784000408e-07,
+    "dalpha_max_abs_err": 7.161409243394701e-10
+  },
+  "D_max_dev_invariant": {
+    "Delta_half": 0.2,
+    "rows": [
+      {
+        "alpha": 0.5,
+        "max_dev": 0.19999098107949376,
+        "frac_of_Delta": 0.4999774526987344,
+        "mean_dev": 0.09425898655125152
+      },
+      {
+        "alpha": 0.2,
+        "max_dev": 0.19998872634937315,
+        "frac_of_Delta": 0.49997181587343287,
+        "mean_dev": 0.08277089388692703
+      },
+      {
+        "alpha": 0.1,
+        "max_dev": 0.19998657110867435,
+        "frac_of_Delta": 0.4999664277716859,
+        "mean_dev": 0.07369676246018583
+      },
+      {
+        "alpha": 0.05,
+        "max_dev": 0.19998417076201735,
+        "frac_of_Delta": 0.4999604269050434,
+        "mean_dev": 0.06529303457571832
+      },
+      {
+        "alpha": 0.02,
+        "max_dev": 0.19998075353930878,
+        "frac_of_Delta": 0.49995188384827194,
+        "mean_dev": 0.055711359296724286
+      },
+      {
+        "alpha": 0.01,
+        "max_dev": 0.19997805316902473,
+        "frac_of_Delta": 0.4999451329225618,
+        "mean_dev": 0.04966467002103953
+      },
+      {
+        "alpha": 0.005,
+        "max_dev": 0.19997529365263866,
+        "frac_of_Delta": 0.49993823413159666,
+        "mean_dev": 0.04455728797546292
+      }
+    ]
+  },
+  "E_train_deploy_curve": [
+    {
+      "steps": 150,
+      "train_loss": 0.002775419433407296,
+      "deploy_loss": 0.010618235475326285,
+      "gap_db": 5.82723727362724
+    },
+    {
+      "steps": 300,
+      "train_loss": 5.22174248257434e-05,
+      "deploy_loss": 0.00759286692182334,
+      "gap_db": 21.62590337995503
+    },
+    {
+      "steps": 500,
+      "train_loss": 3.3722279028506725e-07,
+      "deploy_loss": 0.0075479661801642825,
+      "gap_db": 43.49913028017461
+    },
+    {
+      "steps": 800,
+      "train_loss": 5.837296889133752e-11,
+      "deploy_loss": 0.0075153950847810635,
+      "gap_db": 81.0974003400787
+    },
+    {
+      "steps": 1500,
+      "train_loss": 9.618380003562922e-26,
+      "deploy_loss": 0.0075153950847810635,
+      "gap_db": 228.92849885200155
+    }
+  ],
+  "E_arms": [
+    {
+      "arm": "fixed alpha=0.4",
+      "alpha_end": 0.4,
+      "train_loss": 1.442584291830195e-07,
+      "deploy_loss": 0.008681674305220047,
+      "gap_db": 47.79462290275851
+    },
+    {
+      "arm": "fixed alpha=0.2",
+      "alpha_end": 0.2,
+      "train_loss": 3.3722279028506725e-07,
+      "deploy_loss": 0.0075479661801642825,
+      "gap_db": 43.49913028017461
+    },
+    {
+      "arm": "fixed alpha=0.05",
+      "alpha_end": 0.05,
+      "train_loss": 1.5019803818842867e-05,
+      "deploy_loss": 0.005722721598213937,
+      "gap_db": 25.80938358481767
+    },
+    {
+      "arm": "learn alpha (lam=0)",
+      "alpha_end": 0.2708061661421456,
+      "train_loss": 2.3478719369645826e-07,
+      "deploy_loss": 0.008120300543376542,
+      "gap_db": 45.38897698436269
+    },
+    {
+      "arm": "learn alpha (lam=0.001)",
+      "alpha_end": 0.06081747783518293,
+      "train_loss": 5.692469268710801e-07,
+      "deploy_loss": 0.006442173182554217,
+      "gap_db": 40.537317009011396
+    }
+  ]
+}
