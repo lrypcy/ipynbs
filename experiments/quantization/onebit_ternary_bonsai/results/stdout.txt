@@ -1,0 +1,76 @@
+==============================================================================
+ExpA  位宽账：字母表 + group scale 开销
+==============================================================================
+format                                     bpw  vs FP16
+FP16 baseline                           16.000    1.00x
+INT4 g128                                4.125    3.88x
+INT2 g128                                2.125    7.53x
+Ternary ideal log2(3), no scale          1.585   10.09x
+Ternary g128 (PrismML)                   1.710    9.36x
+Ternary g128 (2-bit slot)                2.125    7.53x
+Binary g128 (GGUF Q1_0_g128)             1.125   14.22x
+Binary g128 (MLX scale+bias)             1.250   12.80x
+
+校验 PrismML 公开口径：
+  binary  g128 = 1.1250 bpw, 14.22x   (官方 1.125 / 14.2x)
+  ternary g128 = 1.7100 bpw, 9.36x  (官方 1.71 / 9.4x)
+  MLX 1-bit    = 1.2500 bpw           (官方 1.25)
+  27.3B params: binary g128 -> 3.84 GB (官方 3.9); ternary g128 -> 5.84 GB (官方 5.9)
+
+==============================================================================
+ExpB  重建误差：字母表 x 粒度（W: 512x512 高斯 + 1% 重尾 outlier）
+==============================================================================
+method                                     bpw   rel err
+INT4 per-tensor                          4.000    72.74%
+INT4 g128                                4.125    25.27%
+INT4 g32                                 4.500    14.97%
+INT3 per-tensor                          3.000    80.72%
+INT3 g128                                3.125    46.32%
+INT3 g32                                 3.500    29.10%
+INT2 per-tensor                          2.000    93.75%
+INT2 g128                                2.125    69.23%
+INT2 g32                                 2.500    52.87%
+Ternary per-tensor                       1.585    66.21%
+Ternary g256                             1.647    65.96%
+Ternary g128                             1.710    65.69%
+Ternary g64                              1.835    65.09%
+Ternary g32                              2.085    63.85%
+Binary per-tensor                        1.000    74.36%
+Binary g128                              1.125    74.07%
+
+粒度边际收益（per-tensor -> g32）：
+  INT4    : 误差  72.74% ->  14.97%  (降  79.4%)   位宽 4.000 -> 4.500 bpw (涨  12.5%)
+  INT2    : 误差  93.75% ->  52.87%  (降  43.6%)   位宽 2.000 -> 2.500 bpw (涨  25.0%)
+  ternary : 误差  66.21% ->  63.85%  (降   3.6%)   位宽 1.585 -> 2.085 bpw (涨  31.5%)
+
+三元码本中 0 的占比（per-tensor absmean）: 32.7%
+
+==============================================================================
+ExpC  权重误差 -> 输出误差（激活含 5% outlier 通道 x10）
+==============================================================================
+method                                  out rel err     cosine
+INT4 g128                                    25.42%     0.9671
+INT2 g128                                    68.86%     0.7251
+Ternary g128                                 66.14%     0.7501
+Ternary per-tensor                           66.43%     0.7474
+Binary g128                                  74.24%     0.6699
+
+==============================================================================
+ExpD  得到三元权重的三条路径（手写 STE，SGD 1200 步）
+==============================================================================
+path                                             test MSE
+参考 全精度解（不量化，上界）                                   0.00253
+A 训完再量化 PTQ                                       0.26194
+B 随机初始化 + 量化在环（原生低比特）                             0.34660
+C 全精度解 + 量化在环微调（QAT）                              0.23432
+
+C 相对 A 的改善: 10.5%   A/C = 1.12x   距全精度上界仍有 103x（A）/ 93x（C）
+对照：无 STE（round 导数=0）1200 步后 test MSE = 1.00320（等于初始值，训练完全停滞）
+
+[saved] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/onebit_ternary_bonsai/results/alphabet_granularity_frontier.png
+
+[saved] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/onebit_ternary_bonsai/results/granularity_diminishing_return.png
+
+[saved] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/onebit_ternary_bonsai/results/three_routes_to_ternary.png
+
+[results] results/results.json
