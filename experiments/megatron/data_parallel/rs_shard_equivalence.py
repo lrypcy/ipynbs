@@ -2,7 +2,7 @@
 
 对应文章：
   《Megatron-LM 深度剖析（05）：数据并行与优化器——三套实现的分野》
-  https://lrypcy.github.io/2026/10/08/megatron-05-data-parallel-and-optimizers/
+  https://lrypcy.github.io/2026/10/10/megatron-05-data-parallel-and-optimizers/
 
 源码基准 megatron-core 0.20.0 / commit 60e039626。
 
