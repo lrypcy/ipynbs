@@ -1,0 +1,71 @@
+==============================================================================
+gen_stdout.py —— 《Megatron-LM 深度剖析（00）》四张表逐格对账
+源码基准 megatron-core 0.20.0 / commit 60e039626
+==============================================================================
+
+[§4.1] 参数量自检（对齐公开模型公布值）
+  模型              total(B)        正文   no-embed(B)        正文   gated
+  llama-7b           6.738     6.738         6.476     6.476    True
+  llama-7b total                             6.738 B         6.738 B   ok
+  llama-7b no-embed                          6.476 B         6.476 B   ok
+  llama3-8b          8.030     8.030         6.979     6.979    True
+  llama3-8b total                            8.030 B         8.030 B   ok
+  llama3-8b no-embed                         6.979 B         6.979 B   ok
+  qwen-14b          14.769    14.769        13.212    13.212    True
+  qwen-14b total                            14.769 B        14.769 B   ok
+  qwen-14b no-embed                         13.212 B        13.212 B   ok
+  gpt3-175b        175.181   175.181       173.946   173.946   False
+  gpt3-175b total                          175.181 B       175.181 B   ok
+  gpt3-175b no-embed                       173.946 B       173.946 B   ok
+
+[§4.2] 交叉验证：独立实现（causal 折半） vs Megatron 官方公式
+  模型              seq          独立实现          官方公式       偏差%
+  llama-7b       4096        42.864        42.864      0.00
+  llama-7b 独立实现                             42.864 GFLOP        42.864 GFLOP   ok
+  llama-7b 官方公式                             42.864 GFLOP        42.864 GFLOP   ok
+  llama3-8b      8192        51.470        51.470      0.00
+  llama3-8b 独立实现                            51.470 GFLOP        51.470 GFLOP   ok
+  llama3-8b 官方公式                            51.470 GFLOP        51.470 GFLOP   ok
+  qwen-14b       8192        96.023        96.023     -0.00
+  qwen-14b 独立实现                             96.023 GFLOP        96.023 GFLOP   ok
+  qwen-14b 官方公式                             96.023 GFLOP        96.023 GFLOP   ok
+  gpt3-175b      2048      1061.878      1061.878      0.00
+  gpt3-175b 独立实现                          1061.878 GFLOP      1061.878 GFLOP   ok
+  gpt3-175b 官方公式                          1061.878 GFLOP      1061.878 GFLOP   ok
+
+[§4.4] 重计算不计入：官方公式收尾 return flops_fwd * 3，开 recompute 不涨
+  llama-7b    none    46.08  selective    48.23  full    61.18 GFLOP   full/none = 1.328
+  llama-7b total_none                       46.085 GFLOP        46.080 GFLOP   ok
+  llama-7b total_full                       61.184 GFLOP        61.180 GFLOP   ok
+              实际算力增量 = 1.328x  → +32.8%
+
+[§4.5-表1] 官方口径 vs 6ND
+  模型              seq         官方口径         6ND       偏差%
+  llama-7b       4096       42.864      38.856      10.3
+  llama-7b 官方口径                             42.864 GFLOP        42.864 GFLOP   ok
+  llama-7b 6ND                              38.856 GFLOP        38.856 GFLOP   ok
+  llama-7b 偏差%                              10.314%        10.300%   ok
+  llama3-8b      8192       51.470      41.876      22.9
+  llama3-8b 官方口径                            51.470 GFLOP        51.470 GFLOP   ok
+  llama3-8b 6ND                             41.876 GFLOP        41.876 GFLOP   ok
+  llama3-8b 偏差%                             22.912%        22.900%   ok
+  qwen-14b       8192       96.023      79.272      21.1
+  qwen-14b 官方口径                             96.023 GFLOP        96.023 GFLOP   ok
+  qwen-14b 6ND                              79.272 GFLOP        79.272 GFLOP   ok
+  qwen-14b 偏差%                              21.131%        21.100%   ok
+  gpt3-175b      2048     1061.878    1043.677       1.7
+  gpt3-175b 官方口径                          1061.878 GFLOP      1061.878 GFLOP   ok
+  gpt3-175b 6ND                           1043.677 GFLOP      1043.677 GFLOP   ok
+  gpt3-175b 偏差%                              1.744%         1.700%   ok
+
+[§4.5-表2] 独立实现、未折半口径 vs 6ND（偏差随序列长度放大）
+  llama-7b       4096       46.085        18.6%
+  llama-7b 未折半精确                            46.085 GFLOP        46.080 GFLOP   ok
+  llama-7b 未折半偏差%                           18.604%        18.600%   ok
+  llama3-8b      8192       57.913        38.3%
+  llama3-8b 未折半精确                           57.913 GFLOP             —   (正文未列)
+  llama3-8b 未折半偏差%                          38.296%        38.300%   ok
+
+==============================================================================
+对账通过：正文四张表的每一个数字都与本目录脚本实跑一致。
+==============================================================================
