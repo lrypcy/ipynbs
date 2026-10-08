@@ -3,7 +3,7 @@
 ## 对应文章
 
 - 《Megatron-LM 深度剖析（03）：张量并行与序列并行——`f` / `g` 算子与 RS + AG 的真实实现》
-  https://lrypcy.github.io/2026/09/09/megatron-03-tensor-parallel-and-sequence-parallel/
+  https://lrypcy.github.io/2026/10/09/megatron-03-tensor-parallel-and-sequence-parallel/
 
 ## 这是什么
 

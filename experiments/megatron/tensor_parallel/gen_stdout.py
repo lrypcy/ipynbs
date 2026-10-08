@@ -2,7 +2,7 @@
 等价性结论逐条重算，输出与正文逐格对账。
 
 对应文章：
-  https://lrypcy.github.io/2026/09/09/megatron-03-tensor-parallel-and-sequence-parallel/
+  https://lrypcy.github.io/2026/10/09/megatron-03-tensor-parallel-and-sequence-parallel/
 
 用法（在本目录）：
     ~/Software/miniconda3/bin/python3 gen_stdout.py            # 写 results/stdout.txt

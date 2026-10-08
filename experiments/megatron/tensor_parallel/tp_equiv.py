@@ -1,7 +1,7 @@
 """张量并行与序列并行的数值等价性验证（纯 CPU，numpy）。
 
 对应文章：
-  https://lrypcy.github.io/2026/09/09/megatron-03-tensor-parallel-and-sequence-parallel/
+  https://lrypcy.github.io/2026/10/09/megatron-03-tensor-parallel-and-sequence-parallel/
 
 源码基准：megatron-core 0.20.0 / commit 60e039626。
 
