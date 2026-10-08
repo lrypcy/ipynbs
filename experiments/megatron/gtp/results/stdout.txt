@@ -1,0 +1,58 @@
+====================================================================================
+gen_stdout.py —— 《深度剖析（04）GTP 切分语义》逐格对账
+源码基准 megatron-core 0.20.0 / commit 60e039626
+pad_for_alignment=16（GTPRematConfig 默认）| trailing=(14336,) | seed=20261011
+====================================================================================
+
+[§3-a] padding 不生效：标准维度都已是 alignment 的倍数
+   hidden size  align  pad  padded  shard  shard%16           每rank形状
+     4096    4     64    0    4096   1024         0     (1024, 14336)
+     4096    8    128    0    4096    512         0      (512, 14336)
+     5120    8    128    0    5120    640         0      (640, 14336)
+    11008    8    128    0   11008   1376         0     (1376, 14336)
+    13824    8    128    0   13824   1728         0     (1728, 14336)
+  §3-a hidden=4096 size=8 shard               512.000000    512.000000   ok
+
+[§3-b] padding 生效：非标准维度或 size 不整除标准维度
+   hidden size  align  pad  padded  shard  shard%16      浪费%
+     4100    4     64   60    4160   1040         0    1.463
+      777    4     64   55     832    208         0    7.079
+    11008    3     48   32   11040   3680         0    0.291
+    11008    6     96   32   11040   1840         0    0.291
+  §3-b hidden=4100 size=4 pad                  60.000000     60.000000   ok
+  §3-b hidden=4100 size=4 shard              1040.000000   1040.000000   ok
+  §3-b hidden=777 size=4 浪费%                    7.078507      7.078507   ok
+
+[§4] 五组不变量 I1–I5（覆盖 8 组配置）
+   hidden size      I1    I2    I3   I4a   I4b    I5   往返
+     4096    4    True  True  True  True  True  True   一致
+     4096    8    True  True  True  True  True  True   一致
+     5120    8    True  True  True  True  True  True   一致
+     4100    4    True  True  True  True  True  True   一致
+      777    4    True  True  True  True  True  True   一致
+    11008    3    True  True  True  True  True  True   一致
+    11008    8    True  True  True  True  True  True   一致
+    28672    2    True  True  True  True  True  True   一致
+
+[§5] no-pad 模式（pad_for_alignment=0）
+  hidden= 4096 (4096%4=0): shard= 1024 pad=0  未抛断言
+  §5 hidden=4096 是否抛断言                              True          True   ok
+  hidden= 4100 (4100%4=0): shard= 1025 pad=0  未抛断言
+  §5 hidden=4100 是否抛断言                              True          True   ok
+  hidden= 4101 (4101%4=1): ✓ 抛 AssertionError
+  §5 hidden=4101 是否抛断言                              True          True   ok
+  hidden=  777 (777%4=1): ✓ 抛 AssertionError
+  §5 hidden=777 是否抛断言                               True          True   ok
+  §5 no-pad hidden=4096 shard                1024.000000   1024.000000   ok
+
+[§6] 与 activation-centric TP 的形状对照（cut_axis 不同）
+  activation-centric: 激活 (1, 1, 4096) → 每 rank (1, 1, 1024)
+                      权重 (4096, 4096) → 每 rank (1024, 4096)
+  GTP:                权重第 0 维 4096 → 每 rank (1024, 4096)（沿 dim 0 切，gtp_remat=4）
+  对照: activation-centric 切激活最后一维；GTP 切权重第 0 维并在使用时all-gather 回全量
+  §6 activation-centric 每 rank 激活形状正确               True          True   ok
+  §6 GTP 每 rank 权重形状正确                              True          True   ok
+
+====================================================================================
+对账通过：正文四张表的每一个数字都与本目录脚本实跑一致。
+====================================================================================
