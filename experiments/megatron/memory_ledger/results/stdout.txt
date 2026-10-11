@@ -1,0 +1,212 @@
+========================================================================================
+本文件由 gen_stdout.py 自动生成，请勿手工编辑。
+复现：~/Software/miniconda3/envs/torch/bin/python gen_stdout.py
+源码基准：megatron-core 0.20.0 / commit 60e039626
+========================================================================================
+生成时间：2026-10-10T08:12:40
+
+========================================================================================
+【pareto.py】显存账本激活侧帕累托前沿（重计算 / 分布保存 / 卸载三档）
+解释器：/Users/congyuan/Software/miniconda3/bin/python3
+========================================================================================
+========================================================================================================
+显存账本 · 激活侧帕累托前沿（解析）  模型=llama-7b seq=4096 tp=8 pp=1 mbs=1
+单层前向 FLOPs = 1.4173e+12   本 stage 层数 = 32   在飞 microbatch = 1
+========================================================================================================
+
+共扫描 23 个配置点。
+
+【全部扫描点】
+配置                                                                                                                               激活GiB   hostGiB   extra/F       总代价增幅
+------------------------------------------------------------------------------------------------------------------------------------------------------------
+gran=none      method=-       k=None mods=-                                                    sp=on  dsa=off off=-                9.19      0.00      0.0%       0.00%
+gran=full      method=uniform k=   1 mods=-                                                    sp=on  dsa=off off=-                0.12      0.00    100.0%      33.33%
+gran=full      method=uniform k=   2 mods=-                                                    sp=on  dsa=off off=-                0.12      0.00    100.0%      33.33%
+gran=full      method=uniform k=   4 mods=-                                                    sp=on  dsa=off off=-                0.12      0.00    100.0%      33.33%
+gran=full      method=uniform k=   8 mods=-                                                    sp=on  dsa=off off=-                0.12      0.00    100.0%      33.33%
+gran=full      method=block   k=   1 mods=-                                                    sp=on  dsa=off off=-                8.90      0.00      3.1%       1.04%
+gran=full      method=block   k=   2 mods=-                                                    sp=on  dsa=off off=-                8.62      0.00      6.2%       2.08%
+gran=full      method=block   k=   4 mods=-                                                    sp=on  dsa=off off=-                8.05      0.00     12.5%       4.17%
+gran=full      method=block   k=   8 mods=-                                                    sp=on  dsa=off off=-                6.92      0.00     25.0%       8.33%
+gran=selective method=-       k=None mods=core_attn                                            sp=on  dsa=off off=-                9.06      0.00      9.7%       3.23%
+gran=selective method=-       k=None mods=layernorm                                            sp=on  dsa=off off=-                9.06      0.00      0.0%       0.00%
+gran=selective method=-       k=None mods=mlp                                                  sp=on  dsa=off off=-                6.50      0.00     78.2%      26.06%
+gran=selective method=-       k=None mods=moe_act                                              sp=on  dsa=off off=-                6.50      0.00      0.0%       0.00%
+gran=selective method=-       k=None mods=moe                                                  sp=on  dsa=off off=-                6.50      0.00      0.0%       0.00%
+gran=selective method=-       k=None mods=core_attn+mlp                                        sp=on  dsa=off off=-                6.38      0.00     87.9%      29.29%
+gran=full      method=uniform k=   1 mods=-                                                    sp=on  dsa=on  off=-                0.12      0.00    100.0%      33.33%
+gran=selective method=-       k=None mods=core_attn                                            sp=on  dsa=on  off=-                9.06      0.00      9.7%       3.23%
+gran=none      method=-       k=None mods=-                                                    sp=off dsa=off off=-               15.31      0.00      0.0%       0.00%
+gran=full      method=uniform k=   1 mods=-                                                    sp=off dsa=off off=-                1.00      0.00    100.0%      33.33%
+gran=full      method=uniform k=   1 mods=-                                                    sp=off dsa=on  off=-                0.12      0.00    100.0%      33.33%
+gran=none      method=-       k=None mods=-                                                    sp=on  dsa=off off=fine_grained      1.12      8.06      0.0%       0.00%
+gran=none      method=-       k=None mods=-                                                    sp=on  dsa=off off=cpu_layers       0.00      9.19      0.0%       0.00%
+gran=selective method=-       k=None mods=core_attn                                            sp=on  dsa=off off=fine_grained      1.00      8.06      9.7%       3.23%
+
+【前沿 A：只算重计算】代价轴 = 额外重算 FLOPs
+offload 档位的代价是 host 流量而不是 FLOPs，两者不同量纲，混到一张图上会让「免费卸载」支配整个前沿，因此分开列。
+
+共 3 个非受支配点（按激活显存升序）：
+配置                                                                                                                               激活GiB   extra/F       总代价增幅
+------------------------------------------------------------------------------------------------------------------------------------------------------------
+gran=full      method=uniform k=   1 mods=-                                                    sp=on  dsa=off off=-                0.12    100.0%      33.33%
+gran=selective method=-       k=None mods=core_attn+mlp                                        sp=on  dsa=off off=-                6.38     87.9%      29.29%
+gran=selective method=-       k=None mods=moe_act                                              sp=on  dsa=off off=-                6.50      0.0%       0.00%
+
+【前沿 B：卸载档位】代价轴 = 每 step 的 host 流量字节（结构量，可精确算）
+配置                                                                                                                               激活GiB   hostGiB   extra/F
+------------------------------------------------------------------------------------------------------------------------------------------------------------
+gran=none      method=-       k=None mods=-                                                    sp=on  dsa=off off=fine_grained      1.12      8.06      0.0%
+gran=none      method=-       k=None mods=-                                                    sp=on  dsa=off off=cpu_layers       0.00      9.19      0.0%
+gran=selective method=-       k=None mods=core_attn                                            sp=on  dsa=off off=fine_grained      1.00      8.06      9.7%
+
+【结构不适用】以下 6 个 recompute_modules 取值在llama-7b（稠密 decoder）上无对应模块，不给数字：
+   shared_experts、mla_up_proj、gdn_norm_out、gdp_in_proj、gdp_qkv、mhc
+
+【读数】
+1. 基线（不重算不卸载）激活 = 9.19 GiB。
+2. full+uniform 的 k 取 1/2/4/8 时激活显存恒为 [0.125] GiB —— k 不改变显存。源码里 uniform 把全部层都划进 chunk 且每段都 checkpoint，k 只决定 chunk 边界数量，不决定哪些层被 checkpoint。
+3. full+block k=1: 8.90 GiB, extra/F=3.1%
+3. full+block k=2: 8.62 GiB, extra/F=6.2%
+3. full+block k=4: 8.05 GiB, extra/F=12.5%
+3. full+block k=8: 6.92 GiB, extra/F=25.0%
+
+4. distribute_saved_activations 的净收益（只摊薄 ctx.saved_tensors[0] 一条）：
+   [SP=on ] full/uniform k=1 mods=-  0.12 → 0.12 GiB（省 0.000 GiB）
+   [SP=on ] selective/- k=None mods=core_attn  9.06 → 9.06 GiB（省 0.000 GiB）
+   [SP=off] full/uniform k=1 mods=-  1.00 → 0.12 GiB（省 0.875 GiB）
+   注：SP 开着时 DSA 的净收益为 0 —— 它摊的正是层输入那条张量，
+   而 SP 已经把这条沿序列维摊过了。源码因此在 transformer_config.py
+   L1912-L1916 直接禁止 DSA 与 SP 同时开启，二者不是可叠加的两项。
+--- exit code: 0 ---
+
+========================================================================================
+【selective_equivalence.py】normal 与 output-discarding 两种 checkpointing 的数值等价性
+解释器：/Users/congyuan/Software/miniconda3/envs/torch/bin/python
+========================================================================================
+================================================================================================
+normal 与 output-discarding checkpointing 的数值等价性（C 级 · CPU torch float64）
+子块结构：SEQ=16 HIDDEN=32 FFN=64 HEADS=4 dropout p=0.3  种子=20261012
+================================================================================================
+
+【1】前向输出逐位对照
+  plain vs normal                 max ULP = 0
+  plain vs output-discarding      max ULP = 0
+
+【2】反向梯度逐位对照（8 个参数 + 1 个输入）
+  plain 与 normal   最大绝对差 = 0.000e+00
+  plain 与 odd      最大绝对差 = 1.066e-14
+  grad[0]    plain vs normal =   0 ULP   plain vs output-discarding = 256 ULP
+  grad[1]    plain vs normal =   0 ULP   plain vs output-discarding =   0 ULP
+  grad[2]    plain vs normal =   0 ULP   plain vs output-discarding = 2880 ULP
+  grad[3]    plain vs normal =   0 ULP   plain vs output-discarding = 513 ULP
+  grad[4]    plain vs normal =   0 ULP   plain vs output-discarding = 1983 ULP
+  grad[5]    plain vs normal =   0 ULP   plain vs output-discarding = 704 ULP
+  grad[6]    plain vs normal =   0 ULP   plain vs output-discarding =   0 ULP
+  grad[7]    plain vs normal =   0 ULP   plain vs output-discarding =   0 ULP
+  grad[8]    plain vs normal =   0 ULP   plain vs output-discarding = 512 ULP
+  最大 ULP 差：normal = 0   output-discarding = 2880（其中参数 2880，输入 2880）
+
+【3】丢弃动作是否真的释放字节（独立验证）
+  discard 前 nbytes = 8192，discard 后 nbytes = 0，期望 = 8192
+  字节归零且形状/句柄仍可用：True
+
+【4】RNG 恢复是不是承重结构
+  去掉 RNG 恢复后，输入梯度与 plain 的最大 ULP 差 = 512
+  差值非 0 说明 random.py L652-L654 的 _set_all_rng_states 是必需的，
+  不是可有可无的保险代码。
+
+【5】ULP 差出现在哪里：就在 checkpoint 边界上
+  段内参数（up / down，checkpoint 边界以内）最大 ULP = 0
+  段外参数（norm1/norm2/q/k/v/o，边界以外）最大 ULP = 2880
+  边界张量 x1 的输入梯度最大 ULP             = 512
+  全局最大绝对差 = 8.882e-16，相对量级 = 2.201e-16（float64 eps = 2.22e-16）
+  规律很清楚：**边界以内逐位相同，边界以外差 1 个 ULP 量级。**
+  原因是 detach_variable 在重算图与外层图之间多插了一次梯度累加：
+  外层先把 add 节点的贡献加到 x1 上，重算图的贡献再从 detached 副本加回去。
+  浮点加法不结合，于是段外那条路径的求和顺序变了；段内只有一次求和，故不变。
+  这与 05 篇观测到的「非 2 的幂 dp 差 4-24 ULP」同类：不是语义差异，
+  是求和结合序。normal 路径整块 checkpoint，段外没有第二条路径，故全 0 ULP。
+
+【断言】
+  [PASS] normal 前向逐位相同
+  [PASS] output-discarding 前向逐位相同
+  [PASS] normal 梯度逐位相同
+  [PASS] output-discarding 段内参数梯度逐位相同
+  [PASS] output-discarding 段外梯度相对误差 < 1e-14（实 2.20e-16）
+  [PASS] 被丢弃输出 storage 归零
+  [PASS] 去掉 RNG 恢复后梯度确实变了
+
+全部断言通过：前向逐位恒等；段内梯度逐位恒等；丢弃确实释放字节；
+RNG 恢复承重。段外梯度只差求和结合序带来的 1 个 ULP 量级。
+--- exit code: 0 ---
+
+========================================================================================
+【dsa_shapes.py】distribute_saved_activations 的逐 rank 形状推导
+解释器：/Users/congyuan/Software/miniconda3/bin/python3
+========================================================================================
+================================================================================================
+distribute_saved_activations 的逐 rank 形状推导（C 级 · numpy）
+源码：tensor_parallel/utils.py L48-L93 / tensor_parallel/random.py L621-L650
+================================================================================================
+
+设层输入 hidden_states 形状 = (4096, 4096)，numel = 16777216，tp_size = 8
+bf16 字节数 = 33554432
+
+【1】切分后各 rank 手上的形状
+rank      start        end      numel         保存形状           字节
+   0          0    2097152    2097152   (2097152,)      4194304
+   1    2097152    4194304    2097152   (2097152,)      4194304
+   2    4194304    6291456    2097152   (2097152,)      4194304
+   3    6291456    8388608    2097152   (2097152,)      4194304
+   4    8388608   10485760    2097152   (2097152,)      4194304
+   5   10485760   12582912    2097152   (2097152,)      4194304
+   6   12582912   14680064    2097152   (2097152,)      4194304
+   7   14680064   16777216    2097152   (2097152,)      4194304
+每 rank 保存 = 4194304 字节 = 4.0 MiB
+原始 = 33554432 字节 = 32.0 MiB
+全组合计 = 33554432 字节（与原始相等：数据没少，只是摊到各 rank）
+单 rank 节省比例 = 1 - 1/tp = 1 - 1/8 = 0.875000
+
+【2】只摊 args[0] 一个张量
+源码 random.py L622 写 ctx.input_0_shape = args[0].data.shape，L648 写
+gather_split_1d_tensor(inputs[0]) —— 下标 0 是硬编码的。
+所以 DSA 的收益 = 一个 [T,h] 张量的 (1 - 1/tp)，与该层保存了多少张量无关。
+本例收益上限 = 33554432 × (1 - 1/8) = 29360128 字节 = 28.0 MiB
+
+【3】往返一致性（split → all-gather → view）
+  切分再聚合后与原张量逐位相同：True
+  聚合后长度 = 16777216，原长度 = 16777216，一致
+
+【4】SP 已经切过序列维时，DSA 的净收益
+  SP 下本 rank 的 hidden_states 形状 = (512, 4096)（序列维已切），numel = 2097152
+  DSA 再切一次：partition_size = 2097152 // 8 = 262144
+  若允许 DSA+SP 同时开，单张量再省 0.875000，但这条张量
+  已经被 SP 摊到 1/tp；两次摊的是同一个轴（扁平化后的连续块在
+  (T,h) 行主序下就是沿序列维切）。所以两项不是可叠加的省显存手段。
+  transformer_config.py L1912-L1916 因此直接 raise ValueError 禁止组合。
+  验证：SP 形状被 DSA 切两次后长度 = 262144，占原始 numel 的 0.01562500（= 1/tp² = 0.01562500）
+
+【5】numel 不能被 tp_size 整除的边界
+     numel   tp  numel//tp  tp×(numel//tp)     余数     能还原?
+  16777216    8    2097152        16777216      0        是
+      4095    8        511            4088      7        否
+       100    8         12              96      4        否
+      4096    5        819            4095      1        否
+      1023    7        146            1022      1        否
+        10    4          2               8      2        否
+  `//` 向下取整，余数被静默丢弃；聚合端按 numel × tp_size 还原，
+  长度不足时 random.py L649 的 .view(ctx.input_0_shape) 会抛形状不匹配。
+  实际配置里 (T, h) 的 numel 一般能被 tp 整除（h 通常是 tp 的倍数），
+  所以这条边界平时碰不到 —— 但它说明 DSA 没有余数处理逻辑。
+
+【断言】
+  [PASS] 切分后形状是一维 (numel//tp,)
+  [PASS] 各 rank 区间首尾相接且覆盖全表
+  [PASS] 往返逐位一致
+  [PASS] 单 rank 持有量恰为 1/tp
+  [PASS] 全组合计与原始等长（摊分不丢数据）
+  [PASS] 非整除的样例确实有余数
+
+全部断言通过。
+--- exit code: 0 ---
