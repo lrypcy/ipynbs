@@ -7,7 +7,7 @@ dit_core：DiT（Diffusion Transformer）核心机制的数值验证
 对应文章：《扩散 Transformer（01）：Patchify、AdaLN-Zero 与 token 数的账》
 （lrypcy.github.io，生成模型分类，DiT 系列第 1 篇）
 
-六组检查，全部纯 numpy / CPU / 固定 seed，每条都做「解析真值 <-> 数值反算」自校验：
+七组检查，全部纯 numpy / CPU / 固定 seed，每条都做「解析真值 <-> 数值反算」自校验：
 
     1. FLOPs 记账：闭式公式反算 DiT 论文 Table 4 的 13 个 Gflops 数字
     2. 三种训练参数化（epsilon / x0 / v）的互换恒等式与误差放大因子
@@ -17,7 +17,7 @@ dit_core：DiT（Diffusion Transformer）核心机制的数值验证
     6. 采样步数与求解器阶：Euler 一阶 / Heun 二阶，以及折算到 DiT 的总算力
 
 运行：
-    python3 run.py                # 跑全部六组
+    python3 run.py                # 跑全部七组
     python3 run.py 1 3            # 只跑第 1、3 组
     python3 run.py --selftest     # 只跑断言（静默），适合挂 CI
 """
@@ -820,6 +820,39 @@ def exp6_sampler():
 
 # ----------------------------------------------------------------------------
 
+# ----------------------------------------------------------------------------
+# 7. Patch 内部锁死的位置对
+# ----------------------------------------------------------------------------
+
+def exp7_locked_pairs():
+    section(7, "Patch 内部锁死的位置对：p 决定多少位置对永远见不了面")
+    H = W = 32
+    n_pix = H * W
+    total = n_pix * (n_pix - 1) // 2
+    note(f"  latent {H}x{W}（256x256 图像，f=8）：全部位置对 C({n_pix},2) = {total:,}")
+    note("  同一 patch 内部的两个位置被压进同一个 token，注意力永远看不见它们：")
+    note("        p |  patch 数   每 patch 内部位置对   被锁死的位置对      占比")
+    note("    " + "-" * 62)
+    got = {}
+    for p in (8, 4, 2, 1):
+        npatch = (H // p) * (W // p)
+        inner = p * p * (p * p - 1) // 2
+        locked = npatch * inner
+        pct = locked / total * 100.0
+        got[p] = pct
+        note(f"    {p:>4} | {npatch:>7} {inner:>16,} {locked:>16,} "
+             f"{pct:>12.4f}%")
+        check(locked == npatch * inner and locked <= total,
+              f"p={p}: 锁死位置对 {locked:,} = {npatch} x {inner}")
+    check(abs(got[8] - 6.1584) < 5e-5 and abs(got[4] - 1.4663) < 5e-5
+          and abs(got[2] - 0.2933) < 5e-5,
+          "p=8/4/2 的锁死比例与正文引用一致（6.1584% / 1.4663% / 0.2933%）")
+    note()
+    note("  p=8 时有 6.16% 的位置对永远无法通过注意力直接交互，只能靠 patch")
+    note("  内部的线性投影与 MLP 折中；p=2 把这个比例压到万分之五。")
+    return None
+
+
 EXPS = {
     1: exp1_flops,
     2: exp2_parameterization,
@@ -827,6 +860,7 @@ EXPS = {
     4: exp4_timestep,
     5: exp5_conditioning,
     6: exp6_sampler,
+    7: exp7_locked_pairs,
 }
 
 
