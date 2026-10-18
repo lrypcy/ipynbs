@@ -1,0 +1,64 @@
+{
+  "group1": {
+    "多轮对话（system 510 + 6 轮 x 130）": {
+      "requests": 240,
+      "query_tokens": 231600,
+      "avg_prompt_tokens": 965.0,
+      "hit_full_token": 0.8630829015544041,
+      "hit_block16": 0.8572711571675302,
+      "tax_pp": 0.581174438687392
+    },
+    "RAG（system 250 + doc 1022 + query 61）": {
+      "requests": 600,
+      "query_tokens": 799800,
+      "avg_prompt_tokens": 1333.0,
+      "hit_full_token": 0.9155913978494624,
+      "hit_block16": 0.9095273818454613,
+      "tax_pp": 0.6064016004001
+    },
+    "Agent 循环（system+tools 1020 + 15 步 x 98）": {
+      "requests": 300,
+      "query_tokens": 541200,
+      "avg_prompt_tokens": 1804.0,
+      "hit_full_token": 0.9437915742793792,
+      "hit_block16": 0.9400443458980045,
+      "tax_pp": 0.3747228381374723
+    }
+  },
+  "group2": {
+    "working_set_tokens": 30910,
+    "working_set_blocks": 1932,
+    "curve": [
+      {
+        "capacity_blocks": 64,
+        "hit_rate": 0.027726931732933235
+      },
+      {
+        "capacity_blocks": 128,
+        "hit_rate": 0.29182295573893474
+      },
+      {
+        "capacity_blocks": 256,
+        "hit_rate": 0.40006001500375094
+      },
+      {
+        "capacity_blocks": 1933,
+        "hit_rate": 0.8715078769692423
+      },
+      {
+        "capacity_blocks": 512,
+        "hit_rate": 0.5937884471117779
+      },
+      {
+        "capacity_blocks": 1000000000,
+        "hit_rate": 0.894013503375844
+      }
+    ],
+    "cold_first20": 0.5935483870967742,
+    "steady_state": 0.894013503375844
+  },
+  "group3": {
+    "multiturn_token_weighted": 0.8608808290155441,
+    "multiturn_request_weighted": 0.8507829808626144
+  }
+}
