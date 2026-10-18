@@ -1,0 +1,73 @@
+{
+  "kv_bytes_per_token": {
+    "Llama-3-8B": 131072,
+    "Qwen3-32B": 262144,
+    "Llama-3-70B": 327680,
+    "DeepSeek-V3 (MLA)": 70272
+  },
+  "breakeven_bandwidth_gbs": {
+    "Llama-3-8B": 4.03744199252802,
+    "Qwen3-32B": 1.9768694634146342,
+    "Llama-3-70B": 1.1480403399433428,
+    "DeepSeek-V3 (MLA)": 0.4697778162162162
+  },
+  "gpu_bf16_tflops": 494.7,
+  "links": [
+    [
+      "NVLink 4（H100，同机）",
+      400.0
+    ],
+    [
+      "PCIe Gen5 x16",
+      50.0
+    ],
+    [
+      "IB/RoCE 400Gb/s",
+      50.0
+    ],
+    [
+      "TCP 10GbE",
+      1.25
+    ]
+  ],
+  "lease": {
+    "lease_duration": 30.0,
+    "heartbeat_interval": 5.0,
+    "extension": 20.0,
+    "scenarios": [
+      {
+        "scenario": "A 健康：排队 100s 后传输",
+        "design": "lease+hb",
+        "heartbeats": 21,
+        "reclaimed_t": 102.5,
+        "pin_duration_s": 102.5,
+        "wasted_pin_s": 0.0
+      },
+      {
+        "scenario": "B 崩溃：D 在 t=10s 死掉",
+        "design": "lease+hb",
+        "heartbeats": 2,
+        "reclaimed_t": 27.0,
+        "pin_duration_s": 27.0,
+        "wasted_pin_s": 17.0
+      },
+      {
+        "scenario": "C 过载：心跳间隔 4.8s，排队 120s",
+        "design": "lease+hb",
+        "heartbeats": 26,
+        "reclaimed_t": 122.5,
+        "pin_duration_s": 122.5,
+        "wasted_pin_s": 0.0
+      },
+      {
+        "scenario": "D 旧设计：单一 480s 超时，D 崩溃",
+        "design": "single-timeout",
+        "heartbeats": 0,
+        "reclaimed_t": 480.0,
+        "pin_duration_s": 480.0,
+        "wasted_pin_s": 480.0
+      }
+    ],
+    "crash_speedup_vs_single_timeout": 17.77777777777778
+  }
+}
