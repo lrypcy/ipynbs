@@ -1,0 +1,16 @@
+{
+  "ttft": {
+    "p_from_before_s": 2.793594306049822,
+    "p_from_after_s": 2.729591836734694,
+    "p_mean_s": 2.761593071392258,
+    "resid_after_s": 0.025088967971530263,
+    "resid_before_s": 0.035969387755101945,
+    "slope_at_midpoint_per_10pp": 0.20964360587002098
+  },
+  "throughput": {
+    "k": 2.507666065050505,
+    "base_tok_s": 55053.72727272727,
+    "throughput_gain_per_10pp_at_mid": 0.11444565316098637,
+    "ttft_drop_per_10pp_at_mid": 0.20964360587002098
+  }
+}
