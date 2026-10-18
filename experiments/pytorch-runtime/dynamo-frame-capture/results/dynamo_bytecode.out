@@ -1,0 +1,63 @@
+[0/0] [__bytecode] ORIGINAL BYTECODE model /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/pytorch-runtime/dynamo-frame-capture/p14.py line 2 
+[0/0] [__bytecode]   2           0 RESUME                   0
+[0/0] [__bytecode] 
+[0/0] [__bytecode]   3           2 LOAD_FAST                0 (x)
+[0/0] [__bytecode]               4 LOAD_FAST                1 (w)
+[0/0] [__bytecode]               6 BINARY_OP                4 (@)
+[0/0] [__bytecode]              10 STORE_FAST               2 (y)
+[0/0] [__bytecode] 
+[0/0] [__bytecode]   4          12 LOAD_GLOBAL              1 (NULL + torch)
+[0/0] [__bytecode]              24 LOAD_ATTR                1 (relu)
+[0/0] [__bytecode]              34 LOAD_FAST                2 (y)
+[0/0] [__bytecode]              36 PRECALL                  1
+[0/0] [__bytecode]              40 CALL                     1
+[0/0] [__bytecode]              50 STORE_FAST               2 (y)
+[0/0] [__bytecode] 
+[0/0] [__bytecode]   5          52 LOAD_FAST                2 (y)
+[0/0] [__bytecode]              54 LOAD_CONST               1 (2)
+[0/0] [__bytecode]              56 BINARY_OP                5 (*)
+[0/0] [__bytecode]              60 RETURN_VALUE
+[0/0] [__bytecode] 
+[0/0] [__bytecode] 
+[0/0] [__bytecode] MODIFIED BYTECODE model /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/pytorch-runtime/dynamo-frame-capture/p14.py line 2 
+[0/0] [__bytecode]   2           0 RESUME                   0
+[0/0] [__bytecode]               2 LOAD_GLOBAL              5 (NULL + __compiled_fn_1_8f2a9900_c012_473c_8274_14187b90acad)
+[0/0] [__bytecode]              14 LOAD_GLOBAL              7 (NULL + __import_torch_dot__dynamo_dot_utils)
+[0/0] [__bytecode]              26 LOAD_ATTR                4 (record_pregraph_bytecode_enter)
+[0/0] [__bytecode]              36 COPY                     1
+[0/0] [__bytecode]              38 STORE_FAST               4 (tmp_1)
+[0/0] [__bytecode]              40 PRECALL                  0
+[0/0] [__bytecode]              44 CALL                     0
+[0/0] [__bytecode]              54 STORE_FAST               5 (tmp_2)
+[0/0] [__bytecode]              56 LOAD_FAST                0 (x)
+[0/0] [__bytecode]              58 LOAD_FAST                1 (w)
+[0/0] [__bytecode]              60 LOAD_GLOBAL              7 (NULL + __import_torch_dot__dynamo_dot_utils)
+[0/0] [__bytecode]              72 LOAD_ATTR                5 (record_pregraph_bytecode_exit)
+[0/0] [__bytecode]              82 COPY                     1
+[0/0] [__bytecode]              84 STORE_FAST               6 (tmp_3)
+[0/0] [__bytecode]              86 LOAD_FAST                5 (tmp_2)
+[0/0] [__bytecode]              88 PRECALL                  1
+[0/0] [__bytecode]              92 CALL                     1
+[0/0] [__bytecode]             102 POP_TOP
+[0/0] [__bytecode]             104 PRECALL                  2
+[0/0] [__bytecode]             108 CALL                     2
+[0/0] [__bytecode]             118 STORE_FAST               3 (graph_out_0)
+[0/0] [__bytecode]             120 BUILD_LIST               0
+[0/0] [__bytecode]             122 LOAD_FAST                3 (graph_out_0)
+[0/0] [__bytecode]             124 LOAD_CONST               2 (0)
+[0/0] [__bytecode]             126 BINARY_SUBSCR
+[0/0] [__bytecode]             136 BUILD_LIST               0
+[0/0] [__bytecode]             138 BUILD_LIST               0
+[0/0] [__bytecode]             140 SWAP                     2
+[0/0] [__bytecode]             142 BUILD_LIST               0
+[0/0] [__bytecode]             144 LIST_EXTEND              2
+[0/0] [__bytecode]             146 POP_TOP
+[0/0] [__bytecode]             148 BUILD_LIST               1
+[0/0] [__bytecode]             150 SWAP                     2
+[0/0] [__bytecode]             152 DELETE_FAST              3 (graph_out_0)
+[0/0] [__bytecode]             154 SWAP                     3
+[0/0] [__bytecode]             156 POP_TOP
+[0/0] [__bytecode]             158 POP_TOP
+[0/0] [__bytecode]             160 RETURN_VALUE
+[0/0] [__bytecode] 
+[0/0] [__bytecode] 

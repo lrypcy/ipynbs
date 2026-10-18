@@ -1,0 +1,129 @@
+runtime_lab — CPython 3.11.14
+组：1, 2, 3, 4, 5, 6
+
+>>> G1  编译流水线：源码 → AST → 符号表 → Code Object → 字节码
+
+==============================================================================
+G1  编译流水线：源码 → AST → 符号表 → Code Object → 字节码
+==============================================================================
+顶层 code object consts : (1, <code object add at 0x1044f93b0, file "<lab>", line 2>, None, (1,))
+内嵌 code object name   : add
+co_varnames             : ('a', 'b', 'c')
+co_consts               : (None,)
+co_names                : ()
+
+--- add 的字节码 ---
+  2           0 RESUME                   0
+
+  3           2 LOAD_FAST                0 (a)
+              4 LOAD_FAST                1 (b)
+              6 BINARY_OP                0 (+)
+             10 STORE_FAST               2 (c)
+
+  4          12 LOAD_FAST                2 (c)
+             14 RETURN_VALUE
+
+
+>>> G2  编译期作用域分类 → 运行时字节码
+
+==============================================================================
+G2  编译期分类 → 运行时字节码
+==============================================================================
+名字     编译期分类    运行时字节码
+----------------------------------------
+a      free     LOAD_DEREF
+b      free     LOAD_DEREF
+c      local    LOAD_FAST
+x      global   LOAD_GLOBAL
+
+实际反汇编 inner：
+              0 COPY_FREE_VARS           2
+
+  5           2 RESUME                   0
+
+  6           4 LOAD_DEREF               1 (a)
+              6 LOAD_DEREF               2 (b)
+              8 BINARY_OP                0 (+)
+             12 LOAD_FAST                0 (c)
+             14 BINARY_OP                0 (+)
+             18 LOAD_GLOBAL              0 (x)
+             30 BINARY_OP                0 (+)
+             34 RETURN_VALUE
+
+模块体 `y = z + 1`： ['RESUME', 'LOAD_NAME', 'LOAD_CONST', 'BINARY_OP', 'STORE_NAME', 'LOAD_CONST', 'RETURN_VALUE']
+
+>>> G3  编译期常量折叠 vs 运行时专门化（PEP 659）
+
+==============================================================================
+G3  编译期优化（常量折叠）vs 运行时专门化（PEP 659）
+==============================================================================
+编译期折叠：co_consts of `return 2*3`      -> (None, 6)
+编译期折叠：co_consts of `return 'ab'*3`   -> (None, 'ababab')
+
+运行时专门化（三份**源码相同**的 code object）：
+   只喂 int     -> ['RESUME_QUICK', 'LOAD_FAST__LOAD_FAST', 'LOAD_FAST', 'BINARY_OP_ADD_INT', 'RETURN_VALUE']
+   只喂 str     -> ['RESUME_QUICK', 'LOAD_FAST__LOAD_FAST', 'LOAD_FAST', 'BINARY_OP_ADD_UNICODE', 'RETURN_VALUE']
+   int/float 混 -> ['RESUME_QUICK', 'LOAD_FAST__LOAD_FAST', 'LOAD_FAST', 'BINARY_OP_ADAPTIVE', 'RETURN_VALUE']
+   冷对照       -> ['RESUME', 'LOAD_FAST', 'LOAD_FAST', 'BINARY_OP', 'RETURN_VALUE']
+
+注：混跑那一格是否退回 BINARY_OP_ADAPTIVE 与解释器版本有关
+    （3.11 实测退回 ADD_ADAPTIVE，3.13 仍保留 ADD_INT），
+     版本间稳定的结论是前两格：专门化状态由运行时数据决定。
+
+>>> G4  Code Object 静态复用 / Frame 每次调用独立
+
+==============================================================================
+G4  Code Object 静态复用 / Frame 每次调用独立
+==============================================================================
+f1.__code__ is f2.__code__  : True
+f1(1), f2(1)                : 11 101
+递归 4 层同时存活的 frame 数: 4
+  各自的局部变量 n          : [4, 3, 2, 1]
+  f_back 串成链             : True
+两生成器 gi_frame 是否同一  : False
+  各自的 n                  : 2 1
+共享 cell：get() 前后        : 1 → 42
+
+>>> G5  求值栈深度反算 / 生成器 frame 保留
+
+==============================================================================
+G5  求值栈深度可反算 / 生成器 frame 在 yield 处保留
+==============================================================================
+指令                        栈效应       栈深
+----------------------------------------
+RESUME                     +0        0
+LOAD_FAST                  +1        1
+LOAD_FAST                  +1        2
+BINARY_OP                  -1        1
+STORE_FAST                 -1        0
+LOAD_FAST                  +1        1
+LOAD_CONST                 +1        2
+BINARY_OP                  -1        1
+RETURN_VALUE               -1        0
+峰值 2，co_stacksize 2（恰好相等：编译器算出的是最坏情况的精确值）
+
+生成器 gi_frame 快照（f_lasti, f_locals）：
+    (0, {})
+    (12, {'x': 10})
+    (30, {'x': 11})
+    (38, {'x': 11})
+
+>>> G6  观察钩子（settrace / monitoring）的能力边界
+
+==============================================================================
+G6  观察钩子（settrace / monitoring）的能力边界
+==============================================================================
+（本解释器无 sys.monitoring，需 3.12+）
+
+2000 次 work(20) 的耗时：
+   基线            0.0009 s   (1.00x)
+   行级 settrace   0.0072 s   (7.87x)
+   指令级 settrace 0.0341 s   (37.16x)
+   tracing 下结果不变：work(5) = 30
+
+结论：settrace / monitoring 的回调返回 DISABLE 或 None，
+      只能「看」，不能改写这一步该算出什么 —— 这正是 PEP 523 的差别。
+
+==============================================================================
+全部通过：45 条断言
+==============================================================================
