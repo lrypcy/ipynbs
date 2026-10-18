@@ -1,14 +1,14 @@
-W1019 04:19:16.725000 89434 site-packages/torch/_dynamo/variables/tensor.py:1079] [0/0] Graph break from `Tensor.item()`, consider setting:
-W1019 04:19:16.725000 89434 site-packages/torch/_dynamo/variables/tensor.py:1079] [0/0]     torch._dynamo.config.capture_scalar_outputs = True
-W1019 04:19:16.725000 89434 site-packages/torch/_dynamo/variables/tensor.py:1079] [0/0] or:
-W1019 04:19:16.725000 89434 site-packages/torch/_dynamo/variables/tensor.py:1079] [0/0]     env TORCHDYNAMO_CAPTURE_SCALAR_OUTPUTS=1
-W1019 04:19:16.725000 89434 site-packages/torch/_dynamo/variables/tensor.py:1079] [0/0] to include these operations in the captured graph.
-W1019 04:19:16.725000 89434 site-packages/torch/_dynamo/variables/tensor.py:1079] [0/0] 
-W1019 04:19:16.725000 89434 site-packages/torch/_dynamo/variables/tensor.py:1079] [0/0] Graph break: from user code at:
-W1019 04:19:16.725000 89434 site-packages/torch/_dynamo/variables/tensor.py:1079] [0/0]   File "/Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/pytorch-runtime/dynamo-frame-capture/dynamo_lab.py", line 136, in with_item
-W1019 04:19:16.725000 89434 site-packages/torch/_dynamo/variables/tensor.py:1079] [0/0]     return t.sum().item() * 2
-W1019 04:19:16.725000 89434 site-packages/torch/_dynamo/variables/tensor.py:1079] [0/0] 
-W1019 04:19:16.725000 89434 site-packages/torch/_dynamo/variables/tensor.py:1079] [0/0] 
+W1019 04:26:15.112000 2984 site-packages/torch/_dynamo/variables/tensor.py:1079] [0/0] Graph break from `Tensor.item()`, consider setting:
+W1019 04:26:15.112000 2984 site-packages/torch/_dynamo/variables/tensor.py:1079] [0/0]     torch._dynamo.config.capture_scalar_outputs = True
+W1019 04:26:15.112000 2984 site-packages/torch/_dynamo/variables/tensor.py:1079] [0/0] or:
+W1019 04:26:15.112000 2984 site-packages/torch/_dynamo/variables/tensor.py:1079] [0/0]     env TORCHDYNAMO_CAPTURE_SCALAR_OUTPUTS=1
+W1019 04:26:15.112000 2984 site-packages/torch/_dynamo/variables/tensor.py:1079] [0/0] to include these operations in the captured graph.
+W1019 04:26:15.112000 2984 site-packages/torch/_dynamo/variables/tensor.py:1079] [0/0] 
+W1019 04:26:15.112000 2984 site-packages/torch/_dynamo/variables/tensor.py:1079] [0/0] Graph break: from user code at:
+W1019 04:26:15.112000 2984 site-packages/torch/_dynamo/variables/tensor.py:1079] [0/0]   File "/Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/pytorch-runtime/dynamo-frame-capture/dynamo_lab.py", line 136, in with_item
+W1019 04:26:15.112000 2984 site-packages/torch/_dynamo/variables/tensor.py:1079] [0/0]     return t.sum().item() * 2
+W1019 04:26:15.112000 2984 site-packages/torch/_dynamo/variables/tensor.py:1079] [0/0] 
+W1019 04:26:15.112000 2984 site-packages/torch/_dynamo/variables/tensor.py:1079] [0/0] 
 dynamo_lab — torch 2.10.0 / CPython 3.11.14
 组：7, 8, 9
 
@@ -67,15 +67,26 @@ fullgraph=True 遇到 print 时抛出： Unsupported
 ==============================================================================
 G9  Guard 的构成 / 失效之后的重编译
 ==============================================================================
-guard 总数：10，其中带 Python code 的 5 条
-guard 类型： ['AUTOGRAD_SAVED_TENSORS_HOOKS', 'DEFAULT_DEVICE', 'ID_MATCH', 'TENSOR_MATCH']
+单输入 f(x) = relu(x) * 2：
+   guard 总数 10，带 Python code 的 5 条
+   guard 类型： ['AUTOGRAD_SAVED_TENSORS_HOOKS', 'DEFAULT_DEVICE', 'ID_MATCH', 'TENSOR_MATCH']
+   Python 侧 code_list：
+       utils_device.CURRENT_DEVICE == None
+       torch._functorch.aot_autograd.utils.top_saved_tensors_hooks ids == None
+       ___check_obj_id(G['torch']
+       ___check_obj_id(G['torch'].relu
+       hasattr(L['x']
 
-Python 侧 code_list：
-    utils_device.CURRENT_DEVICE == None
-    torch._functorch.aot_autograd.utils.top_saved_tensors_hooks ids == None
-    ___check_obj_id(G['torch']
-    ___check_obj_id(G['torch'].relu
-    hasattr(L['x']
+双输入 model(x, w) = relu(x@w) * 2：
+   guard 总数 11，带 Python code 的 6 条
+   guard 类型： ['AUTOGRAD_SAVED_TENSORS_HOOKS', 'DEFAULT_DEVICE', 'ID_MATCH', 'TENSOR_MATCH']
+   Python 侧 code_list：
+       utils_device.CURRENT_DEVICE == None
+       torch._functorch.aot_autograd.utils.top_saved_tensors_hooks ids == None
+       hasattr(L['x']
+       hasattr(L['w']
+       ___check_obj_id(G['torch']
+       ___check_obj_id(G['torch'].relu
 
 4 个不同 batch（4/8/16/32）依次调用：
    automatic_dynamic_shapes=True （默认）: 2 个图
@@ -89,5 +100,5 @@ dtype f32 → f64 → f32 三次调用：2 个图
 显式 mark_dynamic(t, 0) 后 4 个 batch：1 个图
 
 ==============================================================================
-全部通过：19 条断言
+全部通过：21 条断言
 ==============================================================================

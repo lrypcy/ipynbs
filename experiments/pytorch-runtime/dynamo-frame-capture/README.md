@@ -29,7 +29,9 @@ python3 runtime_lab.py --selftest   # 只跑断言（静默），适合挂 CI
 
 `runtime_lab.py` 只用标准库，无随机性，纯 CPU。
 `dynamo_lab.py` 固定 `seed = 20261019`，也不需要 GPU。
-实测：3.11.14 上 45 条断言全过，3.13.12 上 46 条全过；`dynamo_lab.py` 19 条全过。
+实测：`runtime_lab.py` 在 3.11.14 上 45 条断言全过、3.13.12 上 46 条全过
+（多出的一条是 `sys.monitoring` 检查，3.11 无此模块会自动跳过）；
+`dynamo_lab.py` 21 条全过。合计 66 条。
 
 ## 九组检查与结论
 

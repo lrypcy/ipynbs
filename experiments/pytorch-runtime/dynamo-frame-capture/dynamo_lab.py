@@ -204,16 +204,19 @@ def g9_guards():
         return torch.relu(x) * 2
 
     # --- guard 清单长什么样 ---
-    torch._dynamo.reset()
-    exp = torch._dynamo.explain(f)(torch.randn(8, 32))
-    guards = exp.out_guards
-    code_lines = []
-    for g in guards:
-        cl = getattr(g, "code_list", None) or []
-        for line in cl:
-            if line:
-                code_lines.append(line.split(",")[0][:78])
-    types = sorted({t for g in guards for t in (getattr(g, "guard_types", None) or [])})
+    def dump_guards(fn, *args):
+        torch._dynamo.reset()
+        exp = torch._dynamo.explain(fn)(*args)
+        guards = exp.out_guards
+        codes, types = [], set()
+        for g in guards:
+            for line in (getattr(g, "code_list", None) or []):
+                if line:
+                    codes.append(line.split(",")[0][:78])
+            types.update(getattr(g, "guard_types", None) or [])
+        return guards, codes, sorted(types)
+
+    guards, code_lines, types = dump_guards(f, torch.randn(8, 32))
 
     check(len(guards) >= 6, "G9: 一次最简单的编译也产生 %d 条 guard" % len(guards))
     check("TENSOR_MATCH" in types,
@@ -221,12 +224,34 @@ def g9_guards():
     check(any("check_obj_id" in c and "torch" in c for c in code_lines),
           "G9: Python 侧 code_list 里有 `torch` 模块的 id 检查")
 
+    def two(x, w):
+        y = x @ w
+        y = torch.relu(y)
+        return y * 2
+
+    guards2, codes2, types2 = dump_guards(
+        two, torch.randn(8, 16), torch.randn(16, 32))
+
+    check(len(guards2) > len(guards),
+          "G9: 两个 Tensor 输入（%d 条）比一个（%d 条）多出 guard"
+          % (len(guards2), len(guards)))
+    check(len(codes2) == len(code_lines) + 1,
+          "G9: 多出来的正好是第二个输入的 dynamic_indices 检查"
+          "（%d 条 code vs %d 条）" % (len(codes2), len(code_lines)))
+
     if VERBOSE:
-        print("guard 总数：%d，其中带 Python code 的 %d 条" % (len(guards), len(code_lines)))
-        print("guard 类型：", types)
-        print("\nPython 侧 code_list：")
+        print("单输入 f(x) = relu(x) * 2：")
+        print("   guard 总数 %d，带 Python code 的 %d 条" % (len(guards), len(code_lines)))
+        print("   guard 类型：", types)
+        print("   Python 侧 code_list：")
         for c in code_lines:
-            print("   ", c)
+            print("      ", c)
+        print("\n双输入 model(x, w) = relu(x@w) * 2：")
+        print("   guard 总数 %d，带 Python code 的 %d 条" % (len(guards2), len(codes2)))
+        print("   guard 类型：", types2)
+        print("   Python 侧 code_list：")
+        for c in codes2:
+            print("      ", c)
 
     # --- 形状变化 -> 重编译；automatic dynamic shapes 会救一次 ---
     def run_shapes(calls, **cfg):
