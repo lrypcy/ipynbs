@@ -1,18 +1,4 @@
-W1019 04:26:15.112000 2984 site-packages/torch/_dynamo/variables/tensor.py:1079] [0/0] Graph break from `Tensor.item()`, consider setting:
-W1019 04:26:15.112000 2984 site-packages/torch/_dynamo/variables/tensor.py:1079] [0/0]     torch._dynamo.config.capture_scalar_outputs = True
-W1019 04:26:15.112000 2984 site-packages/torch/_dynamo/variables/tensor.py:1079] [0/0] or:
-W1019 04:26:15.112000 2984 site-packages/torch/_dynamo/variables/tensor.py:1079] [0/0]     env TORCHDYNAMO_CAPTURE_SCALAR_OUTPUTS=1
-W1019 04:26:15.112000 2984 site-packages/torch/_dynamo/variables/tensor.py:1079] [0/0] to include these operations in the captured graph.
-W1019 04:26:15.112000 2984 site-packages/torch/_dynamo/variables/tensor.py:1079] [0/0] 
-W1019 04:26:15.112000 2984 site-packages/torch/_dynamo/variables/tensor.py:1079] [0/0] Graph break: from user code at:
-W1019 04:26:15.112000 2984 site-packages/torch/_dynamo/variables/tensor.py:1079] [0/0]   File "/Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/pytorch-runtime/dynamo-frame-capture/dynamo_lab.py", line 136, in with_item
-W1019 04:26:15.112000 2984 site-packages/torch/_dynamo/variables/tensor.py:1079] [0/0]     return t.sum().item() * 2
-W1019 04:26:15.112000 2984 site-packages/torch/_dynamo/variables/tensor.py:1079] [0/0] 
-W1019 04:26:15.112000 2984 site-packages/torch/_dynamo/variables/tensor.py:1079] [0/0] 
-dynamo_lab — torch 2.10.0 / CPython 3.11.14
-组：7, 8, 9
-
->>> G7  从 Python 函数到 FX Graph：捕获了什么
+dynamo_lab.ipynb 执行输出（torch 2.10.0 / CPython 3.11.14）
 
 ==============================================================================
 G7  从 Python 函数到 FX Graph：捕获了什么
@@ -23,13 +9,13 @@ class GraphModule(torch.nn.Module):
         l_x_ = L_x_
         l_w_ = L_w_
         
-        # File: /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/pytorch-runtime/dynamo-frame-capture/dynamo_lab.py:62 in model, code: y = x @ w
+        # File: /var/folders/1h/x16wsv8n5lgf2wz_nlgjjv340000gn/T/ipykernel_41819/1078170853.py:7 in model, code: y = x @ w
         y: "f32[8, 32]" = l_x_ @ l_w_;  l_x_ = l_w_ = None
         
-        # File: /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/pytorch-runtime/dynamo-frame-capture/dynamo_lab.py:63 in model, code: y = torch.relu(y)
+        # File: /var/folders/1h/x16wsv8n5lgf2wz_nlgjjv340000gn/T/ipykernel_41819/1078170853.py:8 in model, code: y = torch.relu(y)
         y_1: "f32[8, 32]" = torch.relu(y);  y = None
         
-        # File: /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/pytorch-runtime/dynamo-frame-capture/dynamo_lab.py:64 in model, code: return y * 2
+        # File: /var/folders/1h/x16wsv8n5lgf2wz_nlgjjv340000gn/T/ipykernel_41819/1078170853.py:9 in model, code: return y * 2
         mul: "f32[8, 32]" = y_1 * 2;  y_1 = None
         return (mul,)
         
@@ -42,8 +28,17 @@ shape: (4, 8)
 带 print 的版本：图数量 = 2
   graph0 算子: ['relu']
   graph1 算子: ['mul']
-
->>> G8  Graph Break 触发源清单
+W1020 00:12:19.690000 41819 site-packages/torch/_dynamo/variables/tensor.py:1079] [0/0] Graph break from `Tensor.item()`, consider setting:
+W1020 00:12:19.690000 41819 site-packages/torch/_dynamo/variables/tensor.py:1079] [0/0]     torch._dynamo.config.capture_scalar_outputs = True
+W1020 00:12:19.690000 41819 site-packages/torch/_dynamo/variables/tensor.py:1079] [0/0] or:
+W1020 00:12:19.690000 41819 site-packages/torch/_dynamo/variables/tensor.py:1079] [0/0]     env TORCHDYNAMO_CAPTURE_SCALAR_OUTPUTS=1
+W1020 00:12:19.690000 41819 site-packages/torch/_dynamo/variables/tensor.py:1079] [0/0] to include these operations in the captured graph.
+W1020 00:12:19.690000 41819 site-packages/torch/_dynamo/variables/tensor.py:1079] [0/0] 
+W1020 00:12:19.690000 41819 site-packages/torch/_dynamo/variables/tensor.py:1079] [0/0] Graph break: from user code at:
+W1020 00:12:19.690000 41819 site-packages/torch/_dynamo/variables/tensor.py:1079] [0/0]   File "/var/folders/1h/x16wsv8n5lgf2wz_nlgjjv340000gn/T/ipykernel_41819/2715090980.py", line 18, in with_item
+W1020 00:12:19.690000 41819 site-packages/torch/_dynamo/variables/tensor.py:1079] [0/0]     return t.sum().item() * 2
+W1020 00:12:19.690000 41819 site-packages/torch/_dynamo/variables/tensor.py:1079] [0/0] 
+W1020 00:12:19.690000 41819 site-packages/torch/_dynamo/variables/tensor.py:1079] [0/0] 
 
 ==============================================================================
 G8  Graph Break 触发源清单（torch._dynamo.explain 实测）
@@ -61,8 +56,6 @@ numpy 往返                    1      0      3
 graph_break 标志位： {'纯 Tensor 运算（基线）': False, '内置 print': True, '.item()': True, '数据依赖分支': True, '.tolist()': True, 'numpy 往返': False}
 
 fullgraph=True 遇到 print 时抛出： Unsupported
-
->>> G9  Guard 的构成 / 失效之后的重编译
 
 ==============================================================================
 G9  Guard 的构成 / 失效之后的重编译
@@ -98,7 +91,4 @@ G9  Guard 的构成 / 失效之后的重编译
 
 dtype f32 → f64 → f32 三次调用：2 个图
 显式 mark_dynamic(t, 0) 后 4 个 batch：1 个图
-
-==============================================================================
 全部通过：21 条断言
-==============================================================================
