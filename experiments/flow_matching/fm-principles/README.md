@@ -1,13 +1,15 @@
-# Flow Matching / 扩散模型「原理详解」· 7 组核验实验
+# Flow Matching / 扩散模型「原理篇」· 7 组核验实验
 
-配套博文：**《Flow Matching 与扩散模型：一份讲到能自己推的原理详解》**
+配套博文：**《从概率路径到 Flow Matching：用一套数学框架理解现代扩散模型》**
 <https://lrypcy.github.io/2026/10/20/flow-matching-00-principles/>
 
 底本：Peter Holderrieth & Ezra Erives, *An Introduction to Flow Matching and
 Diffusion Models*, MIT 6.S184 (2026) —— <https://diffusion.csail.mit.edu/>
 
-博文里出现的每一个「实测」数字都出自本目录。**输出已固化在
-`results/stdout.txt`，GitHub 上直接读即可，不必自己跑。**
+博文走数学推导；本目录把推导中的关键恒等式（CFM = FM + C、Thm 17 分布不变性、
+CFG ≡ 倾斜分布的速度场、四种参数化互为仿射重组）在有限原子混合上逐点验到
+机器精度，是本系列的数值核验存档。**输出已固化在 `results/stdout.txt`，
+GitHub 上直接读即可，不必自己跑。**
 
 ## 文件
 
