@@ -1,0 +1,90 @@
+## 对应文章
+
+- 《大模型量化算法（17）：伪量化算子插入——QAT 的地基》
+  https://lrypcy.github.io/2026-08-26/llm-quant-11-fake-quant-insertion/
+- 《大模型量化算法（18）：LSQ / PACT / DSQ》
+  https://lrypcy.github.io/2026-08/29/llm-quant-18-lsq-pact-dsq/
+
+姊妹实验：`fake_quant_ste/`（纯 numpy，讲算子数学与插入位置）。**本实验讲真实框架的行为**，
+所有结论都来自可执行断言，不来自文档转述。
+
+## 如何运行
+
+```bash
+cd <本目录>
+~/Software/miniconda3/envs/torch/bin/jupyter nbconvert --to notebook --execute --inplace fake_quant_torch_onnx.ipynb
+```
+
+- 解释器：`~/Software/miniconda3/envs/torch/bin/python`（需要 torch；base python 没有）
+- **纯 CPU**，无 GPU 依赖；`SEED=0`，smoke 秒级 / 分钟级
+- 环境版本（实测）：**torch 2.10.0 / onnx 1.20.1 / Python 3.11.14 / macOS**
+- 本机**没有 onnxruntime**，因此第 4 组只做结构断言，不做 ONNX 数值前向
+
+## 实验内容
+
+### 1. FakeQuantize 的数值语义与 STE 梯度
+- (a) 手写 round-trip `s·(clip(round(x/s)+z_p) − z_p)` 与 `torch.fake_quantize_per_tensor_affine`
+  在 quint8 非对称 / qint8 对称 / zp=0 三组参数下一致（max|Δ| < 1e-6，差异只在 float32 舍入）；
+- (b) **11 个探针点的梯度实测表**——这是本篇最重要的一组；
+- (c) `MinMaxObserver` 在 `[-1,0,2,5]` 上的 qparams；
+- (d) `PerChannelMinMaxObserver` 的 scale/zp 形状与逐通道值。
+
+### 2. Eager mode QAT
+`get_default_qat_qconfig("x86")` 逐字段打印；BN 折叠的**两种产物**；训练 40 步；
+`disable_observer` 后 scale 逐位不变而权重仍在更新。
+
+### 3. FX graph mode QAT
+`prepare_qat_fx` 后原样打印图；统计 `activation_post_process` 节点数与真实类型；
+确认权重的伪量化**不在图上**（在 `Linear` 内部）。
+
+### 4. PT2E → ONNX QDQ
+两条导出路径都跑；QDQ 节点逐个列 scale 形状 / axis / 是否 initializer。
+
+### 4b. 对照组：per-channel 配置能否导出带 axis 的 QDQ
+同一模型换 `is_per_channel=True` 重走一遍，捕获异常链的**根因**。
+
+### 5. 三层表示汇总表 + 放行域示意图
+
+## 关键数字 / 事实（本机实测）
+
+| 组 | 实测结论 |
+|---|---|
+| 1(a) | 三组参数下手写与 torch 一致，max\|Δ\| ≤ 2.48e-07（float32 舍入量级）；**漏减 `z_p` 使每个元素整体偏移 `s·z_p=0.84`**——未饱和元素 `x=0.0` 本应精确映到 0，漏减后变成 0.840，**zero-point 存在的意义被直接破坏** |
+| 1(b) | **STE 放行判据不是「x 在可表示区间内」，而是 `round(x/s)+z_p ∈ [q_min, q_max]`**。实测：`x/s=127.49`→grad 1、`127.50`→**0**、`128.00`→0；`-128.50`→**1**、`-129.00`→0。两端半格点行为相反，因为 round 是 **ties-to-even**（127.5→128 越界，−128.5→−128 未越界） |
+| 1(c) | 对称 qint8 的 `zero_point` 实测 = **−86**（不是 0）；quint8 非对称 = 42。对称的含义是「0 落在网格上」，不是 `z_p=0` |
+| 2 | x86 QAT 默认激活 `MovingAverageMinMaxObserver(quant_min=0, quant_max=255, `**`reduce_range=True`**`)` → **名义 8-bit、实际 128 个码字**；权重 `MovingAveragePerChannelMinMaxObserver`，`per_channel_symmetric`，`reduce_range=False` |
+| 2 | eval 版 `fuse_modules` 在 train 模式下**报错拒绝**（`Fusion only for eval!`）；QAT 要用 `fuse_modules_qat`，产物是 **`ConvBn2d`**（BN 作为可训练子模块留在里面），而不是把 BN 抹掉 |
+| 2 | 训练 40 步后 `rel.MSE(W, FQ(W))` 从 3.7429e-03 涨到 **5.3566e-02** → 权重每步都被重新伪量化，不是「离线一次」 |
+| 2 | `disable_observer` 后再训 5 步：scale 用 `torch.equal` 断言**逐位不变**，权重仍在变 |
+| 3 | 图上节点叫 `activation_post_process_*`，**名字里没有 FakeQuant**；真实类型 `FusedMovingAvgObsFakeQuantize`。权重侧是 `fc*.weight_fake_quant` 子模块，**图上没有独立节点** |
+| 3 | `weight_fake_quant.scale.shape` 在 `prepare` 刚结束时是占位的 **(1,)**，跑过一次前向才变成 **(32,)** |
+| 4 | **x86 Inductor quantizer 给 `nn.Linear` 的 convert 后图里 quantize 调用 = 0 处**（裸 `aten.linear`）；要显式 QDQ 必须换 XNNPACK quantizer |
+| 4 | 旧 TorchScript 导出器（`dynamo=False`）报 `UnsupportedOperatorError`：认不出 `quantized_decomposed` 命名空间 |
+| 4 | `dynamo=True` 成功：**QuantizeLinear 3 个 / DequantizeLinear 5 个**，opset **20**（导出器自选，不是我传的 18）；全部 scale 是 initializer；`zero_point` dtype = **INT8**（与规范「y_zero_point 与 y 同类型」一致） |
+| 4 | 权重侧的 `QuantizeLinear` **被折叠成 int8 initializer**，图上只剩 `DequantizeLinear` → 训练图/表示图/执行图三态差别的直接证据 |
+| 4 | 8 个 QDQ 节点**全部带 `axis=1`，但 scale 全是标量** → axis 在这里是冗余属性。**判粒度必须看 scale 的 shape，不能看有没有 axis** |
+| 4 | 2/2 个矩阵乘的输入都来自 `DequantizeLinear`（浮点）→ **QDQ 图 ≠ 整数 kernel** |
+| 4b | per-channel 配置导出**失败**，根因：`DispatchError: No ONNX function found for quantized_decomposed.dequantize_per_channel`。ONNX 规范支持 per-axis，但**导出链路不支持** |
+
+## 与常见说法不符的地方（本机实测）
+
+1. **「对称量化 zero_point = 0」** → 实测 −86。
+2. **「STE 就是把量化当作不存在」** → 放行判据作用在 round **之后**的整数码上，且因
+   ties-to-even 两端不对称；写成 `1[x ∈ q_min·s, q_max·s]` 与 PyTorch 实际行为不等价。
+3. **「x86 QAT 是 INT8 激活」** → 默认 `reduce_range=True`，实际只用 128 个码字。
+4. **「quantize_fx() 一步完成」「prepare/convert 是一条通用流水线」** → PTQ 与 QAT、
+   eager 与 FX、PT2E 是不同流程，`prepare_qat_fx` 之后必须训练、必须冻结 observer。
+5. **「导出成 QDQ 就是量化部署完成」** → 导出图里矩阵乘的输入仍是浮点；
+   per-channel 甚至根本导不出来。
+6. **TVM 相关**（不在本实验，见文章 §7.5）：`qnn.simulated_quantize` 签名里没有
+   `min_range`/`max_range`；annotate/calibrate/realize 属于 `relay.quantize` 而非 `relay.qnn`；
+   **relay qnn 在 v0.20.0 就被删了**（commit `ccaa534b2`，2025-02-15），不是更晚。
+
+## 预期输出
+
+- `results/fq_g3_fx_graph.png`、`results/fq_g5_ste_domain.png`
+- `results/fq_qdq_model.onnx`（可直接用 `onnx.load` 打开的 QDQ 图）
+- `results/stdout.txt` / `results/results.json`
+- 执行后的 `fake_quant_torch_onnx.ipynb`（含全部输出）
+
+**断言总数：37**（全部通过）

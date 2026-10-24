@@ -1,0 +1,198 @@
+{
+  "meta": {
+    "torch": "2.10.0",
+    "onnx": "1.20.1",
+    "device": "cpu",
+    "seed": 0,
+    "python": "3.11.14"
+  },
+  "n_assertions": 37,
+  "1_fq_vs_numpy": [
+    {
+      "case": "quint8 affine",
+      "s": 0.02,
+      "zp": 42,
+      "max_abs_diff": 2.479553220524622e-07
+    },
+    {
+      "case": "qint8 symmetric",
+      "s": 0.0235,
+      "zp": -86,
+      "max_abs_diff": 1.6021728477255692e-07
+    },
+    {
+      "case": "int8 zp=0",
+      "s": 0.1,
+      "zp": 0,
+      "max_abs_diff": 1.907348643470641e-07
+    }
+  ],
+  "1b_ste_grad": [
+    {
+      "point": "grid point 0",
+      "x": 0.0,
+      "x_over_s": 0.0,
+      "grad": 1.0
+    },
+    {
+      "point": "grid midpoint",
+      "x": 0.05,
+      "x_over_s": 0.5,
+      "grad": 1.0
+    },
+    {
+      "point": "mid + eps",
+      "x": 0.050001000000000004,
+      "x_over_s": 0.50001,
+      "grad": 1.0
+    },
+    {
+      "point": "exactly hi (q_max*s)",
+      "x": 12.700000000000001,
+      "x_over_s": 127.0,
+      "grad": 1.0
+    },
+    {
+      "point": "hi + 0.49 step",
+      "x": 12.749,
+      "x_over_s": 127.49,
+      "grad": 1.0
+    },
+    {
+      "point": "hi + 0.50 step",
+      "x": 12.750000000000002,
+      "x_over_s": 127.50000000000001,
+      "grad": 0.0
+    },
+    {
+      "point": "hi + 0.51 step",
+      "x": 12.751000000000001,
+      "x_over_s": 127.51,
+      "grad": 0.0
+    },
+    {
+      "point": "hi + 1.00 step",
+      "x": 12.8,
+      "x_over_s": 128.0,
+      "grad": 0.0
+    },
+    {
+      "point": "exactly lo (q_min*s)",
+      "x": -12.8,
+      "x_over_s": -128.0,
+      "grad": 1.0
+    },
+    {
+      "point": "lo - 0.49 step",
+      "x": -12.849,
+      "x_over_s": -128.48999999999998,
+      "grad": 1.0
+    },
+    {
+      "point": "lo - 0.50 step",
+      "x": -12.850000000000001,
+      "x_over_s": -128.5,
+      "grad": 1.0
+    },
+    {
+      "point": "lo - 0.51 step",
+      "x": -12.851,
+      "x_over_s": -128.51,
+      "grad": 0.0
+    },
+    {
+      "point": "lo - 1.00 step",
+      "x": -12.9,
+      "x_over_s": -129.0,
+      "grad": 0.0
+    },
+    {
+      "point": "far outside",
+      "x": 100.0,
+      "x_over_s": 1000.0,
+      "grad": 0.0
+    }
+  ],
+  "1c_observer": [
+    {
+      "scheme": "quint8 (0,255)",
+      "scale": 0.0235294122248888,
+      "zero_point": 42,
+      "qmin": 0,
+      "qmax": 255
+    },
+    {
+      "scheme": "qint8 (-128,127)",
+      "scale": 0.0235294122248888,
+      "zero_point": -86,
+      "qmin": -128,
+      "qmax": 127
+    }
+  ],
+  "4_onnx_qdq": [
+    {
+      "op": "DequantizeLinear",
+      "name": "node_dequantize_per_tensor",
+      "scale": "val_1",
+      "scale_shape": [],
+      "axis": 1,
+      "initializer": true
+    },
+    {
+      "op": "DequantizeLinear",
+      "name": "node_dequantize_per_tensor_1",
+      "scale": "val_3",
+      "scale_shape": [],
+      "axis": 1,
+      "initializer": true
+    },
+    {
+      "op": "QuantizeLinear",
+      "name": "node_quantize_per_tensor",
+      "scale": "val_5",
+      "scale_shape": [],
+      "axis": 1,
+      "initializer": true
+    },
+    {
+      "op": "DequantizeLinear",
+      "name": "node_dequantize_per_tensor_2",
+      "scale": "val_5",
+      "scale_shape": [],
+      "axis": 1,
+      "initializer": true
+    },
+    {
+      "op": "QuantizeLinear",
+      "name": "node_quantize_per_tensor_1",
+      "scale": "val_8",
+      "scale_shape": [],
+      "axis": 1,
+      "initializer": true
+    },
+    {
+      "op": "DequantizeLinear",
+      "name": "node_dequantize_per_tensor_3",
+      "scale": "val_8",
+      "scale_shape": [],
+      "axis": 1,
+      "initializer": true
+    },
+    {
+      "op": "QuantizeLinear",
+      "name": "node_quantize_per_tensor_2",
+      "scale": "val_11",
+      "scale_shape": [],
+      "axis": 1,
+      "initializer": true
+    },
+    {
+      "op": "DequantizeLinear",
+      "name": "node_dequantize_per_tensor_4",
+      "scale": "val_11",
+      "scale_shape": [],
+      "axis": 1,
+      "initializer": true
+    }
+  ]
+}
