@@ -42,7 +42,7 @@ cd <子目录> && jupyter nbconvert --to notebook --execute --inplace <name>.ipy
 
 | 目录 | 覆盖文章 | 一句话结论 |
 |---|---|---|
-| `fake_quant_ste/` | [17：伪量化算子插入](https://lrypcy.github.io/2026/08/26/llm-quant-11-fake-quant-insertion/) · [QAT 总览](https://lrypcy.github.io/2026/08/25/qat-00-overview/) | 5 组 / 29 断言：`s/2` 只约束未饱和元素（饱和误差可超 100×）；4-bit per-channel +9.26 dB 而 per-group 更差；STE 放行域比可表示区间宽一整格；校准错配让静态激活量化 +19.8 dB；残差两支不同 scale 不退化 |
+| `fake_quant_ste/` | [17：伪量化算子插入](https://lrypcy.github.io/2026/08/26/llm-quant-11-fake-quant-insertion/) · [QAT 总览](https://lrypcy.github.io/2026/08/25/qat-00-overview/) | 5 组 / 33 断言：`s/2` 只约束未饱和元素（饱和误差可超 100×）；4-bit per-channel +9.26 dB 而 per-group 更差；STE 放行域 = `[q_min−0.5, q_max+0.5)`，**两端各宽半格**（上界不含、下界含，ties-to-even 让两端相反；合计总宽多一格 `s`）；校准错配让静态激活量化 +19.8 dB；残差两支不同 scale 不退化 |
 | `pact_learnable_clip/` | [QAT 18：PACT 可学习裁剪](https://lrypcy.github.io/2026/08/29/llm-quant-18-lsq-pact-dsq/) | 4-bit 下搜出的 α* 比 α=max 高 +5.50 dB；截断区 ∂ŷ/∂α 恒为 1 |
 | `dsq_soft_quant/` | [QAT 18：DSQ 软量化](https://lrypcy.github.io/2026/08/29/llm-quant-18-lsq-pact-dsq/) | DSQ 梯度均值 = 1.0000；max\|Q_S−hard\| 恒 = Δ/2；train→deploy gap 43.5 dB |
 | `adaround_brecq_qdrop/` | [19：AdaRound / BRECQ / QDrop](https://lrypcy.github.io/2026/09/19/llm-quant-19-adaround-brecq-qdrop/) | 学舍入方向 +1.68 dB @4bit；BRECQ block 比 RTN +1.65 dB |
@@ -57,7 +57,7 @@ cd <子目录> && jupyter nbconvert --to notebook --execute --inplace <name>.ipy
 
 | 目录 | 覆盖内容 | 一句话结论 |
 |---|---|---|
-| `fake_quant_torch_onnx/` | [17：伪量化算子插入](https://lrypcy.github.io/2026-08-26/llm-quant-11-fake-quant-insertion/) · [18 LSQ/PACT/DSQ](https://lrypcy.github.io/2026-08-29/llm-quant-18-lsq-pact-dsq/) | 49 断言实测 torch 2.10（含 1(e) int4 漏写 z_p 的两种错法、1(f) 放行域半格六探针点）：STE 放行判据是 `round(x/s)+z_p∈[qmin,qmax]`（阈值卡在 ±0.5 格、两端因 ties-to-even 不对称）；对称 qint8 的 zp=−86 不是 0；x86 QAT 默认 `reduce_range=True`（实际 128 码字）；per-channel 量化**导不出** ONNX QDQ |
+| `fake_quant_torch_onnx/` | [17：伪量化算子插入](https://lrypcy.github.io/2026-08-26/llm-quant-11-fake-quant-insertion/) · [18 LSQ/PACT/DSQ](https://lrypcy.github.io/2026-08-29/llm-quant-18-lsq-pact-dsq/) | 49 断言实测 torch 2.10（含 1(e) int4 漏写 z_p 的两种错法、1(f) 放行域半格六探针点）：STE 放行判据是 `round(x/s)+z_p∈[qmin,qmax]`（阈值卡在每侧半格、上界不含下界含，两端因 ties-to-even 相反）；决定对称性的是 `qscheme` 不是码字范围——qint8 **affine** 给 z_p=−86，qint8 **symmetric** 才给 0，quint8 symmetric 给中点 127；x86 QAT 默认 `reduce_range=True`（实际 128 码字，且 `reduce_range` 只能从 `qconfig.activation.p.keywords` 读）；per-channel 量化**导不出** ONNX QDQ |
 | `official_torchao_qat/` | torch.ao.quantization 全流程 QAT（真实 resnet18 权重） | FP32→INT8 top-1 降 5.08pp；体积 2.56x、延迟 2.17x；per-channel 比 per-tensor +7.41 dB |
 | `official_torchao_ptq/` | torch.ao PTQ（MinMax / Histogram observer、真实位打包） | 官方 MinMax(affine) 与手撸非对称 min-max **相对差 0.000%**；8-bit 真实压缩 4.00x（含元数据税） |
 | `official_llm_ptq_torch/` | 真实 tiny-gpt2 上的 RTN / GPTQ / SmoothQuant / AWQ | GPTQ W4 rel-MSE 0.0014 vs RTN 0.034（低 24x）；int4 真实压缩 2.67x |

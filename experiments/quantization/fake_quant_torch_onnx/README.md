@@ -73,9 +73,14 @@ cd <本目录>
 
 ## 与常见说法不符的地方（本机实测）
 
-1. **「对称量化 zero_point = 0」** → 实测 −86。
-2. **「STE 就是把量化当作不存在」** → 放行判据作用在 round **之后**的整数码上，且因
-   ties-to-even 两端不对称；写成 `1[x ∈ q_min·s, q_max·s]` 与 PyTorch 实际行为不等价。
+1. **「对称量化 ⇒ `z_p = 0`」** → 两句话都要拆开看：只把码字范围设成 `(-128, 127)` **不等于**对称量化，
+   默认 `qscheme=per_tensor_affine` 实测给 `z_p=−86`；显式 `per_tensor_symmetric` 下 `z_p` 被钉在
+   **码字区间中点**——qint8 是 0，**quint8 是 127**（不是 0）。所以 `z_p=0` 既不是对称的必要条件也不是充分条件，
+   判对称性看 `qscheme`；而两种情况下 `x=0` 都能精确反量化为 0.0，这才是 `z_p` 的定义性作用（1(c)）。
+2. **「STE 就是把量化当作不存在」** → 放行判据作用在 round **之后**的整数码上：
+   放行域 = `[q_min·s − s/2, q_max·s + s/2)`，**两端各宽半格**且上界不含、下界含
+   （ties-to-even：`round(127.5)=128` 越界切断，`round(−128.5)=−128` 未越界仍放行）；
+   写成 `1[x ∈ [q_min·s, q_max·s]]` 与 PyTorch 实际行为不等价（1(b) / 1(f)）。
 3. **「x86 QAT 是 INT8 激活」** → 默认 `reduce_range=True`，实际只用 128 个码字。
 4. **「quantize_fx() 一步完成」「prepare/convert 是一条通用流水线」** → PTQ 与 QAT、
    eager 与 FX、PT2E 是不同流程，`prepare_qat_fx` 之后必须训练、必须冻结 observer。
