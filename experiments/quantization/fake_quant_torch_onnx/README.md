@@ -51,7 +51,7 @@ cd <本目录>
 |---|---|
 | 1(a) | 三组参数下手写与 torch 一致，max\|Δ\| ≤ 2.48e-07（float32 舍入量级）；**漏减 `z_p` 使每个元素整体偏移 `s·z_p=0.84`**——未饱和元素 `x=0.0` 本应精确映到 0，漏减后变成 0.840，**zero-point 存在的意义被直接破坏** |
 | 1(b) | **STE 放行判据不是「x 在可表示区间内」，而是 `round(x/s)+z_p ∈ [q_min, q_max]`**。实测：`x/s=127.49`→grad 1、`127.50`→**0**、`128.00`→0；`-128.50`→**1**、`-129.00`→0。两端半格点行为相反，因为 round 是 **ties-to-even**（127.5→128 越界，−128.5→−128 未越界） |
-| 1(c) | 对称 qint8 的 `zero_point` 实测 = **−86**（不是 0）；quint8 非对称 = 42。对称的含义是「0 落在网格上」，不是 `z_p=0` |
+| 1(c) | **决定对称性的开关是 `qscheme`，不是码字范围**：`qint8` + 默认 `per_tensor_affine` → `z_p=−86`（非 0）；显式 `per_tensor_symmetric` → `z_p` 钉在码字中点（qint8 是 0、**quint8 是 127**）。两种情况下 `x=0` 都能被精确反量化为 0.0。附带：PyTorch 的 symmetric scale = `(x_max−x_min)/(q_max−q_min)`=10/255，**不是** 教科书的 `absmax/q_max`；`x=5.0` 在前者下被量化成 4.9804（absmax 不精确落格），后者下精确为 5.0 |
 | 2 | x86 QAT 默认激活 `MovingAverageMinMaxObserver(quant_min=0, quant_max=255, `**`reduce_range=True`**`)` → **名义 8-bit、实际 128 个码字**；权重 `MovingAveragePerChannelMinMaxObserver`，`per_channel_symmetric`，`reduce_range=False` |
 | 2 | eval 版 `fuse_modules` 在 train 模式下**报错拒绝**（`Fusion only for eval!`）；QAT 要用 `fuse_modules_qat`，产物是 **`ConvBn2d`**（BN 作为可训练子模块留在里面），而不是把 BN 抹掉 |
 | 2 | 训练 40 步后 `rel.MSE(W, FQ(W))` 从 3.7429e-03 涨到 **5.3566e-02** → 权重每步都被重新伪量化，不是「离线一次」 |
@@ -87,4 +87,4 @@ cd <本目录>
 - `results/stdout.txt` / `results/results.json`
 - 执行后的 `fake_quant_torch_onnx.ipynb`（含全部输出）
 
-**断言总数：37**（全部通过）
+**断言总数：40**（全部通过）

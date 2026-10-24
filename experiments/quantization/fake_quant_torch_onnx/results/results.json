@@ -6,7 +6,7 @@
     "seed": 0,
     "python": "3.11.14"
   },
-  "n_assertions": 37,
+  "n_assertions": 40,
   "1_fq_vs_numpy": [
     {
       "case": "quint8 affine",
@@ -115,18 +115,36 @@
   ],
   "1c_observer": [
     {
-      "scheme": "quint8 (0,255)",
-      "scale": 0.0235294122248888,
-      "zero_point": 42,
+      "dtype": "quint8",
       "qmin": 0,
-      "qmax": 255
+      "qmax": 255,
+      "qscheme": "per_tensor_affine",
+      "scale": 0.0235294122248888,
+      "zero_point": 42
     },
     {
-      "scheme": "qint8 (-128,127)",
-      "scale": 0.0235294122248888,
-      "zero_point": -86,
+      "dtype": "quint8",
+      "qmin": 0,
+      "qmax": 255,
+      "qscheme": "per_tensor_symmetric",
+      "scale": 0.03921568766236305,
+      "zero_point": 127
+    },
+    {
+      "dtype": "qint8",
       "qmin": -128,
-      "qmax": 127
+      "qmax": 127,
+      "qscheme": "per_tensor_affine",
+      "scale": 0.0235294122248888,
+      "zero_point": -86
+    },
+    {
+      "dtype": "qint8",
+      "qmin": -128,
+      "qmax": 127,
+      "qscheme": "per_tensor_symmetric",
+      "scale": 0.03921568766236305,
+      "zero_point": 0
     }
   ],
   "4_onnx_qdq": [

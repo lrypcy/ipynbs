@@ -35,46 +35,60 @@
     → 放行域 = { x : round(x/s)+z_p ∈ [q_min, q_max] }，端点由 ties-to-even 决定，因此**两端并不对称**。
       文献里常把掩码写成闭区间 [q_min·s, q_max·s] 或|x|<=q_max·s，与 PyTorch 的实际实现（判据在 round 之后）并不等价。
 
-[1c] MinMaxObserver 的 qparams
-    quint8 (0,255)     scale=0.023529  zero_point=   42
-    qint8 (-128,127)   scale=0.023529  zero_point=  -86
-    对称 qint8 的 z_p 不是 0：它的约束是『实数 0 必须落在网格上』，
-    取 s=max|x|/q_max 后 0 对应码字 z_p=round(-x_min/s) 的位置。
-  [ok #10] 对称量化（qint8）的 zero_point 实测不为 0 ——『对称 ⇒ z_p=0』是误解
+[1c] MinMaxObserver 的 qparams：qscheme 才是决定对称性的开关
+    MinMaxObserver() 的默认 qscheme = torch.per_tensor_affine
+    quint8 per_tensor_affine    scale=0.023529  z_p=   42
+    quint8 per_tensor_symmetric scale=0.039216  z_p=  127
+     qint8 per_tensor_affine    scale=0.023529  z_p=  -86
+     qint8 per_tensor_symmetric scale=0.039216  z_p=    0
+
+    ① 只把码字范围设成 int8（-128,127）**不等于**对称量化：
+       默认 qscheme 是 per_tensor_affine → z_p=-86（非 0），scale=0.023529 = (x_max−x_min)/(q_max−q_min) = 6/255
+    ② 显式 per_tensor_symmetric → z_p 被钉在**码字区间的中点**：
+       qint8 → z_p=0；quint8 → z_p=127（不是 0！）
+       scale = 2·absmax/(q_max−q_min) = 10/255 = 0.039216
+  [ok #10] qint8 范围 + 默认 affine qscheme 得到 z_p=-86 —— 用有符号码字范围不等于做对称量化
+  [ok #11] 对称量化把 z_p 钉在码字中点：qint8 中点恰为 0，quint8 中点是 127 —— 『对称 ⇒ z_p=0』只对 qint8 成立
+    ③ 但两种情况**实数 0 都能被精确表示**：x=0 → q=round(0/s)+z_p=z_p → x_hat=s(z_p−z_p)=0。这才是 zero_point 的定义性作用，与它等于几无关。
+    ④ PyTorch 的 symmetric scale = (x_max−x_min)/(q_max−q_min) = 10/255 = 0.039216，
+       **不是** 教科书的 absmax/q_max = 5/127 = 0.039370。后果：
+       x=5.0 在前者下量化成 4.9804（丢格，absmax 不在网格上），在后者下是 5.0000（精确）。
+  [ok #12] PyTorch 的『对称』scale 不保证 absmax 精确落在网格上（与教科书公式不同）
+  [ok #13] quint8 对称（z_p=127）下 x=0 仍精确反量化为 0.0
 
 [1d] PerChannelMinMaxObserver on W ∈ R^{4×16}
     scale.shape=(4,)  zero_point.shape=(4,)
     scale[:4]=[0.013148999772965908, 0.013917000032961369, 0.01525100041180849, 0.01937899924814701]  zp[:4]=[33, -6, -24, -49]
-  [ok #11] per-channel 的 scale 是按输出通道的向量（shape=(4,)）
-  [ok #12] torch.fake_quantize_per_channel_affine 与手写 per-channel 版本一致（max|Δ|=9.59e-08，量级为 float32 舍入）
+  [ok #14] per-channel 的 scale 是按输出通道的向量（shape=(4,)）
+  [ok #15] torch.fake_quantize_per_channel_affine 与手写 per-channel 版本一致（max|Δ|=9.59e-08，量级为 float32 舍入）
 [2] get_default_qat_qconfig('x86') 的实际内容
     activation.observer = MovingAverageMinMaxObserver
     activation.quant_min/quant_max = 0 / 255
     activation.reduce_range = True    ← 会让激活实际只用 128 个码字（7-bit 有效位）
     weight.observer = MovingAveragePerChannelMinMaxObserver
     weight.qscheme = torch.per_channel_symmetric, quant_min/max = -128/127, reduce_range = False
-  [ok #13] x86 的 QAT 默认激活配置是 reduce_range=True（有效码字只有 128 个）
-  [ok #14] x86 的 QAT 默认权重量化是 per-channel symmetric
-  [ok #15] 配置里写的是 255，但 reduce_range=True 会把它收缩到 127 —— 名义 8-bit、实际 7-bit
+  [ok #16] x86 的 QAT 默认激活配置是 reduce_range=True（有效码字只有 128 个）
+  [ok #17] x86 的 QAT 默认权重量化是 per-channel symmetric
+  [ok #18] 配置里写的是 255，但 reduce_range=True 会把它收缩到 127 —— 名义 8-bit、实际 7-bit
     fuse_modules（eval 版）在 train 模式下拒绝执行：Fusion only for eval!
-  [ok #16] eval 版 fuse_modules 不能在 train 模式下折叠 BN —— QAT 必须用 fuse_modules_qat，『先折叠再插 FQ』这句话要指明是哪一个折叠
+  [ok #19] eval 版 fuse_modules 不能在 train 模式下折叠 BN —— QAT 必须用 fuse_modules_qat，『先折叠再插 FQ』这句话要指明是哪一个折叠
 
 [2] fuse_modules_qat([['conv','bn']]) 之后：conv 类型 = ConvBn2d，bn 还在吗 = True
-  [ok #17] QAT 的折叠产出 ConvBn2d（保留 BN 的训练态统计，而不是像 eval 版那样把 BN 抹掉）
+  [ok #20] QAT 的折叠产出 ConvBn2d（保留 BN 的训练态统计，而不是像 eval 版那样把 BN 抹掉）
     注意两种折叠的产物不同：eval 版把 BN 吸收成纯 conv 权重（bn 属性消失），
     QAT 版产出 ConvBn2d —— BN 作为一个**可训练子模块**留在里面。
     这正好说明『QAT 里 BN 必须在插 FQ 之前处理』要写清是哪一种处理，否则读者会以为 QAT 也把 BN 统计量直接折死了。
 [2] prepare_qat 之后插入的伪量化模块：['conv.weight_fake_quant', 'conv.activation_post_process', 'fc.weight_fake_quant', 'fc.activation_post_process']
-  [ok #18] prepare_qat 在激活侧插入 FusedMovingAvgObsFakeQuantize（观察器+伪量化合一）
+  [ok #21] prepare_qat 在激活侧插入 FusedMovingAvgObsFakeQuantize（观察器+伪量化合一）
 
 [2] 训练前后：浮点权重 vs 伪量化权重 的 rel-MSE（权重每步都被重新 round-trip）
     step 0   rel.MSE(W, fq(W)) = 3.7429e-03
     step 40  rel.MSE(W, fq(W)) = 5.3566e-02
-  [ok #19] 训练后权重与伪量化权重仍有可测差距 —— 权重是活的，每步都重新走一遍 FQ
+  [ok #22] 训练后权重与伪量化权重仍有可测差距 —— 权重是活的，每步都重新走一遍 FQ
 
 [2] disable_observer 后再训 5 步：scale 逐位不变 = True；权重仍在变 = True
-  [ok #20] 冻结观察器后 scale 逐位不变（这就是 QAT 的『scale 定稿』步骤）
-  [ok #21] 同一批步里权重仍在更新 —— scale 冻结与权重冻结是两件事
+  [ok #23] 冻结观察器后 scale 逐位不变（这就是 QAT 的『scale 定稿』步骤）
+  [ok #24] 同一批步里权重仍在更新 —— scale 冻结与权重冻结是两件事
 [3] prepare_qat_fx 之后的图（原样输出）：
     graph():
         %x : [num_users=1] = placeholder[target=x]
@@ -88,30 +102,30 @@
         return activation_post_process_3
 
 [3] activation_post_process 节点数 = 10，真实类型 = ['FusedMovingAvgObsFakeQuantize', 'MovingAverageMinMaxObserver', 'MovingAveragePerChannelMinMaxObserver']
-  [ok #22] 图里出现的节点名是 activation_post_process —— 名字里**没有** FakeQuant
-  [ok #23] 这些节点的真实类型是 ['FusedMovingAvgObsFakeQuantize', 'MovingAverageMinMaxObserver', 'MovingAveragePerChannelMinMaxObserver']（观察器与伪量化合一）——按名字找 FakeQuant 会漏掉它们
+  [ok #25] 图里出现的节点名是 activation_post_process —— 名字里**没有** FakeQuant
+  [ok #26] 这些节点的真实类型是 ['FusedMovingAvgObsFakeQuantize', 'MovingAverageMinMaxObserver', 'MovingAveragePerChannelMinMaxObserver']（观察器与伪量化合一）——按名字找 FakeQuant 会漏掉它们
 [3] weight_fake_quant 子模块：['fc1.weight_fake_quant', 'fc1.weight_fake_quant.activation_post_process', 'fc2.weight_fake_quant', 'fc2.weight_fake_quant.activation_post_process']
-  [ok #24] 权重的伪量化发生在 Linear 模块**内部**（weight_fake_quant 子模块），图上没有独立节点 —— 只数图节点会漏掉权重量化
+  [ok #27] 权重的伪量化发生在 Linear 模块**内部**（weight_fake_quant 子模块），图上没有独立节点 —— 只数图节点会漏掉权重量化
 [3] fc1.weight_fake_quant: is_per_channel=True, ch_axis=0, scale.shape=(32,)
-  [ok #25] 权重 fake quant 是 per-channel：scale 形状 (32,) = 输出通道数 32（prepare 刚结束时它是占位的 (1,)，跑过一次前向才展开）
+  [ok #28] 权重 fake quant 是 per-channel：scale 形状 (32,) = 输出通道数 32（prepare 刚结束时它是占位的 (1,)，跑过一次前向才展开）
     → 这条是常见的实操坑：在 prepare 之后、任何前向之前读 scale，拿到的是占位形状。
 [save] /private/tmp/nb/to/results/fq_g3_fx_graph.png
 [4] PT2E prepare → 校准 → convert 完成
     模型类型：GraphModule；图里 quantize* 调用 31 处
-  [ok #26] convert_pt2e 在图上插入了 quantized_decomposed 的量化/反量化调用
+  [ok #29] convert_pt2e 在图上插入了 quantized_decomposed 的量化/反量化调用
     注意：本轮实测 x86_inductor quantizer 对 nn.Linear 的**解码模式**不做标注
     （convert 后图里是裸 aten.linear，quantize 调用 0 处）——它的目标是把量化
     留给 Inductor 后端融合，而不是产出一张可导出的 QDQ 图。要拿到显式 QDQ 表示，
     要用 XNNPACK quantizer（本实验选它）。这个差异本身就是『表示层 vs 执行层』的例子。
 [4] dynamo=False（TorchScript 导出器）→ NotImplementedError: 
-  [ok #27] PT2E 的量化模型无法用旧 TorchScript 导出器导出（quantized_decomposed 未注册 symbolic）
+  [ok #30] PT2E 的量化模型无法用旧 TorchScript 导出器导出（quantized_decomposed 未注册 symbolic）
 [4] dynamo=True 导出成功 → /private/tmp/nb/to/results/fq_qdq_model.onnx（0 字节 .data 占位已清理）
 [4] 已导出 ONNX：/private/tmp/nb/to/results/fq_qdq_model.onnx
     onnx.checker 通过；opset=20，ir_version=10（由 dynamo 导出器选定，不是我传入的 opset_version）
 
 [4] QDQ 节点统计：QuantizeLinear 3 个，DequantizeLinear 5 个
-  [ok #28] 导出的图里确实有 QuantizeLinear / DequantizeLinear 节点
-  [ok #29] Q 与 DQ 数量接近（3 vs 5）—— QDQ 是成对的表示
+  [ok #31] 导出的图里确实有 QuantizeLinear / DequantizeLinear 节点
+  [ok #32] Q 与 DQ 数量接近（3 vs 5）—— QDQ 是成对的表示
 
 [4] 逐节点清单（scale 形状 / axis / 是否 initializer）
     DequantizeLinear scale=val_1                                    shape=() axis=1 init=True
@@ -122,9 +136,9 @@
     DequantizeLinear scale=val_8                                    shape=() axis=1 init=True
     QuantizeLinear   scale=val_11                                   shape=() axis=1 init=True
     DequantizeLinear scale=val_11                                   shape=() axis=1 init=True
-  [ok #30] 全部 scale 都是 initializer（常量张量）—— 量化参数固化成图的一部分，不是可变属性
+  [ok #33] 全部 scale 都是 initializer（常量张量）—— 量化参数固化成图的一部分，不是可变属性
     zero_point 的 ONNX dtype = ['TensorProto.INT8']（枚举值 [3]）；scale 形状 = ['()']
-  [ok #31] zero_point 是 INT8 —— 与规范的『y_zero_point 与 y 同类型、其类型决定量化类型』一致
+  [ok #34] zero_point 是 INT8 —— 与规范的『y_zero_point 与 y 同类型、其类型决定量化类型』一致
     QuantizeLinear 输出的声明类型 = ['TensorProto.INT8']
 
 [4] 权重侧的表现：直接吃 initializer（int8 常量）的 DequantizeLinear 有 2 个，
@@ -132,9 +146,9 @@
     → 导出时权重的 QuantizeLinear 已被**折叠**成 int8 initializer，图上只剩 DequantizeLinear。
       这不是 bug，而是『训练图 / 表示图 / 执行图』三态差别的直接体现：训练时权重每步都要
       重新伪量化（因为权重在变），导出后权重不再变，Q 就可以吸收进常量。
-  [ok #32] 两个 Linear 的权重都以 int8 initializer + DQ 的形式出现在图上
+  [ok #35] 两个 Linear 的权重都以 int8 initializer + DQ 的形式出现在图上
     带 axis 属性的节点 8 个，但其中标量 scale 的节点 8 个 —— 两者数量相等，说明这里的 axis 是**冗余属性**。
-  [ok #33] 全部 QDQ 节点都带 axis=1，同时全部 scale 都是标量
+  [ok #36] 全部 QDQ 节点都带 axis=1，同时全部 scale 都是标量
     → 判粒度必须看 scale 的 shape，**不能只看有没有 axis**：
       axis 只在 scale 为向量（per-axis）时才有意义；ONNX 规范里 scale 是标量时
       不该带 axis，这里属于导出器写法。据此误判会把 per-tensor 图读成 per-channel。
@@ -142,17 +156,17 @@
 
 [4] 手写 QDQ 语义 vs transform 出来的图（数值一致性由 torch 侧 fake quant 对比）
     torch 量化模型前向输出 shape = (2, 4)，范围 [-0.4286, 0.6517]
-  [ok #34] 量化模型前向仍返回同样的输出形状（语义没变，只是数值被钉到网格上）
+  [ok #37] 量化模型前向仍返回同样的输出形状（语义没变，只是数值被钉到网格上）
 
     这张 ONNX 图**只是表示**：QuantizeLinear/DequantizeLinear 都是不透明算子，
     每个 Q 的输出是 int8、DQ 的输出回到 float。图中不存在『整数矩阵乘』——
     要把它们变成整数 kernel，需要下游引擎做融合与 lowering。
     证据：图里 MatMul/Gemm 的输入仍然来自 DequantizeLinear，即浮点。
     MatMul/Gemm 节点 2 个，其中输入直接来自 DequantizeLinear 的 2 个
-  [ok #35] 全部矩阵乘的输入都来自 DequantizeLinear（浮点）—— QDQ 图不等于整数 kernel 执行
+  [ok #38] 全部矩阵乘的输入都来自 DequantizeLinear（浮点）—— QDQ 图不等于整数 kernel 执行
 [4b] 同一模型换成 per-channel 配置再导出：
     失败（根因）：<class 'torch.onnx._internal.exporter._errors.DispatchError'>: No ONNX function found for <OpOverload(op='quantized_decomposed.dequantize_per_channel', overload
-  [ok #36] torch 2.10 的 dynamo ONNX 导出器没有注册 quantized_decomposed.dequantize_per_channel 的 decomposition —— per-channel 量化无法直接导出成带 axis 的 ONNX QDQ
+  [ok #39] torch 2.10 的 dynamo ONNX 导出器没有注册 quantized_decomposed.dequantize_per_channel 的 decomposition —— per-channel 量化无法直接导出成带 axis 的 ONNX QDQ
     这就是『表示层』的真实边界：ONNX 规范本身支持 per-axis（axis 属性 + 向量 scale），
     但**导出链路不一定支持**。想拿到带 axis 的 QDQ，要么换导出路径
     （onnxscript / 直接手搭 QDQ 图 / 用支持 per-channel 的旧 FX 导出），
@@ -164,5 +178,5 @@
     训练层 FQ         torch.fake_quantize_per_tensor_affine        float → float（落在网格上）         1(b)：梯度在放行域内恒 1、域外 0
     表示层 QDQ        ONNX QuantizeLinear + DequantizeLinear       float → int8 → float         4：Q 3 个 / DQ 5 个，scale 全是 initializer
     执行层 kernel     引擎融合后的整数 Gemm                                int8 × int8 → int32          4：图里 2/2 个矩阵乘输入仍来自 DQ（浮点）
-  [ok #37] 导出的 QDQ 图本身不做整数计算 —— 这是『导出 ≠ 加速』的直接证据
+  [ok #40] 导出的 QDQ 图本身不做整数计算 —— 这是『导出 ≠ 加速』的直接证据
 [save] /private/tmp/nb/to/results/fq_g5_ste_domain.png
