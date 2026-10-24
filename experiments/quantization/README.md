@@ -57,7 +57,7 @@ cd <子目录> && jupyter nbconvert --to notebook --execute --inplace <name>.ipy
 
 | 目录 | 覆盖内容 | 一句话结论 |
 |---|---|---|
-| `fake_quant_torch_onnx/` | [17：伪量化算子插入](https://lrypcy.github.io/2026-08-26/llm-quant-11-fake-quant-insertion/) · [18 LSQ/PACT/DSQ](https://lrypcy.github.io/2026-08-29/llm-quant-18-lsq-pact-dsq/) | 37 断言实测 torch 2.10：STE 放行判据是 `round(x/s)+z_p∈[qmin,qmax]`（阈值卡在 ±0.5 格、两端因 ties-to-even 不对称）；对称 qint8 的 zp=−86 不是 0；x86 QAT 默认 `reduce_range=True`（实际 128 码字）；per-channel 量化**导不出** ONNX QDQ |
+| `fake_quant_torch_onnx/` | [17：伪量化算子插入](https://lrypcy.github.io/2026-08-26/llm-quant-11-fake-quant-insertion/) · [18 LSQ/PACT/DSQ](https://lrypcy.github.io/2026-08-29/llm-quant-18-lsq-pact-dsq/) | 49 断言实测 torch 2.10（含 1(e) int4 漏写 z_p 的两种错法、1(f) 放行域半格六探针点）：STE 放行判据是 `round(x/s)+z_p∈[qmin,qmax]`（阈值卡在 ±0.5 格、两端因 ties-to-even 不对称）；对称 qint8 的 zp=−86 不是 0；x86 QAT 默认 `reduce_range=True`（实际 128 码字）；per-channel 量化**导不出** ONNX QDQ |
 | `official_torchao_qat/` | torch.ao.quantization 全流程 QAT（真实 resnet18 权重） | FP32→INT8 top-1 降 5.08pp；体积 2.56x、延迟 2.17x；per-channel 比 per-tensor +7.41 dB |
 | `official_torchao_ptq/` | torch.ao PTQ（MinMax / Histogram observer、真实位打包） | 官方 MinMax(affine) 与手撸非对称 min-max **相对差 0.000%**；8-bit 真实压缩 4.00x（含元数据税） |
 | `official_llm_ptq_torch/` | 真实 tiny-gpt2 上的 RTN / GPTQ / SmoothQuant / AWQ | GPTQ W4 rel-MSE 0.0014 vs RTN 0.034（低 24x）；int4 真实压缩 2.67x |

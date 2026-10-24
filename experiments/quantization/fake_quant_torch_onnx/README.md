@@ -27,7 +27,10 @@ cd <本目录>
   在 quint8 非对称 / qint8 对称 / zp=0 三组参数下一致（max|Δ| < 1e-6，差异只在 float32 舍入）；
 - (b) **11 个探针点的梯度实测表**——这是本篇最重要的一组；
 - (c) `MinMaxObserver` 在 `[-1,0,2,5]` 上的 qparams；
-- (d) `PerChannelMinMaxObserver` 的 scale/zp 形状与逐通道值。
+- (d) `PerChannelMinMaxObserver` 的 scale/zp 形状与逐通道值；
+- (e) **int4 非对称下「漏写 `z_p`」的两种写法对照**：量化/解码两处都不写 `z_p`，
+  与只在解码处漏写 `z_p`——两者偏差形态完全不同；
+- (f) **放行域端点的可判定断言**（`scale=1.0` 整数格点，六个探针点可直接手算复核）。
 
 ### 2. Eager mode QAT
 `get_default_qat_qconfig("x86")` 逐字段打印；BN 折叠的**两种产物**；训练 40 步；
@@ -52,6 +55,8 @@ cd <本目录>
 | 1(a) | 三组参数下手写与 torch 一致，max\|Δ\| ≤ 2.48e-07（float32 舍入量级）；**漏减 `z_p` 使每个元素整体偏移 `s·z_p=0.84`**——未饱和元素 `x=0.0` 本应精确映到 0，漏减后变成 0.840，**zero-point 存在的意义被直接破坏** |
 | 1(b) | **STE 放行判据不是「x 在可表示区间内」，而是 `round(x/s)+z_p ∈ [q_min, q_max]`**。实测：`x/s=127.49`→grad 1、`127.50`→**0**、`128.00`→0；`-128.50`→**1**、`-129.00`→0。两端半格点行为相反，因为 round 是 **ties-to-even**（127.5→128 越界，−128.5→−128 未越界） |
 | 1(c) | **决定对称性的开关是 `qscheme`，不是码字范围**：`qint8` + 默认 `per_tensor_affine` → `z_p=−86`（非 0）；显式 `per_tensor_symmetric` → `z_p` 钉在码字中点（qint8 是 0、**quint8 是 127**）。两种情况下 `x=0` 都能被精确反量化为 0.0。附带：PyTorch 的 symmetric scale = `(x_max−x_min)/(q_max−q_min)`=10/255，**不是** 教科书的 `absmax/q_max`；`x=5.0` 在前者下被量化成 4.9804（absmax 不精确落格），后者下精确为 5.0 |
+| 1(e) | `x=[-1,0,2,5]`、`s=5/7`、`z_p=-8`、`q∈[-8,7]`：torch 与手写 `s*(clip(round(x/s)+z_p)-z_p)` **逐元素严格相等** = `[0, 0, 2.1429, 5.0]`；**两处都不写 `z_p`** 的 `s*clip(round(x/s))` = `[-0.7143, 0, 2.1429, 5.0]`（偏差只在饱和元素上非零，**不是**常数 `s·z_p`）；**只在解码漏减**则整体平移 `s·z_p = -5.7143`（每个元素都偏）。正确区间 `[0, 10.7143]`，前者错成 `[-5.7143, 5.0]` |
+| 1(f) | 对称 int8 `s=1.0, z_p=0, q∈[-128,127]` 下六个探针点梯度 = **`[1, 0, 0, 0, 1, 0]`**（`x/s=127.49, 127.50, 127.51, 128.0, -128.50, -128.51`）：切点恰在**每侧半格**，上界不含（`round(127.5)=128` 越界）、下界含（`round(-128.5)=-128` ties-to-even 未越界） |
 | 2 | x86 QAT 默认激活 `MovingAverageMinMaxObserver(quant_min=0, quant_max=255, `**`reduce_range=True`**`)` → **名义 8-bit、实际 128 个码字**；权重 `MovingAveragePerChannelMinMaxObserver`，`per_channel_symmetric`，`reduce_range=False` |
 | 2 | eval 版 `fuse_modules` 在 train 模式下**报错拒绝**（`Fusion only for eval!`）；QAT 要用 `fuse_modules_qat`，产物是 **`ConvBn2d`**（BN 作为可训练子模块留在里面），而不是把 BN 抹掉 |
 | 2 | 训练 40 步后 `rel.MSE(W, FQ(W))` 从 3.7429e-03 涨到 **5.3566e-02** → 权重每步都被重新伪量化，不是「离线一次」 |
@@ -83,8 +88,10 @@ cd <本目录>
 ## 预期输出
 
 - `results/fq_g3_fx_graph.png`、`results/fq_g5_ste_domain.png`
+- 1(e)/1(f) 的数值与断言在 `results/stdout.txt` 的 `[1e]` / `[1f]` 两段，
+  并写入 `results/results.json` 的 `1e_A2_int4_zeropoint` / `1f_D2_halfstep`
 - `results/fq_qdq_model.onnx`（可直接用 `onnx.load` 打开的 QDQ 图）
 - `results/stdout.txt` / `results/results.json`
 - 执行后的 `fake_quant_torch_onnx.ipynb`（含全部输出）
 
-**断言总数：40**（全部通过）
+**断言总数：49**（全部通过）
