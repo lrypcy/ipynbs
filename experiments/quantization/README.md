@@ -42,7 +42,7 @@ cd <子目录> && jupyter nbconvert --to notebook --execute --inplace <name>.ipy
 
 | 目录 | 覆盖文章 | 一句话结论 |
 |---|---|---|
-| `fake_quant_ste/` | [17：伪量化算子插入](https://lrypcy.github.io/2026/08/26/llm-quant-11-fake-quant-insertion/) · [QAT 总览](https://lrypcy.github.io/2026/08/25/qat-00-overview/) | 4-bit per-tensor → per-group 白捡 13.02 dB；STE 斜率恒为 1（有偏 +0.50） |
+| `fake_quant_ste/` | [17：伪量化算子插入](https://lrypcy.github.io/2026/08/26/llm-quant-11-fake-quant-insertion/) · [QAT 总览](https://lrypcy.github.io/2026/08/25/qat-00-overview/) | 5 组 / 29 断言：`s/2` 只约束未饱和元素（饱和误差可超 100×）；4-bit per-channel +9.26 dB 而 per-group 更差；STE 放行域比可表示区间宽一整格；校准错配让静态激活量化 +19.8 dB；残差两支不同 scale 不退化 |
 | `pact_learnable_clip/` | [QAT 18：PACT 可学习裁剪](https://lrypcy.github.io/2026/08/29/llm-quant-18-lsq-pact-dsq/) | 4-bit 下搜出的 α* 比 α=max 高 +5.50 dB；截断区 ∂ŷ/∂α 恒为 1 |
 | `dsq_soft_quant/` | [QAT 18：DSQ 软量化](https://lrypcy.github.io/2026/08/29/llm-quant-18-lsq-pact-dsq/) | DSQ 梯度均值 = 1.0000；max\|Q_S−hard\| 恒 = Δ/2；train→deploy gap 43.5 dB |
 | `adaround_brecq_qdrop/` | [19：AdaRound / BRECQ / QDrop](https://lrypcy.github.io/2026/09/19/llm-quant-19-adaround-brecq-qdrop/) | 学舍入方向 +1.68 dB @4bit；BRECQ block 比 RTN +1.65 dB |
