@@ -23,7 +23,7 @@
     总误差（含饱和）      max=2.007411  被裁剪 883 个
   [ok #6] 未饱和元素满足 |ε_r| ≤ s/2
   [ok #7] 含饱和时总误差上界被突破（|ε| > s/2）
-[save] /private/tmp/nb/fq/results/fq_a_roundtrip.png
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/fake_quant_ste/results/fq_a_roundtrip.png
 [B] W(256, 128): rms=2.0036, max/rms=19.72, 离群列=6
 
  bits  scheme   granularity    W rel.MSE   out rel.MSE
@@ -54,7 +54,7 @@
 [NOTE] 2-bit sym：per-tensor 0.8688 | per-channel 0.7107 | per-group 0.7700
        per-group 反而比 per-channel 差 8.3% —— 因为本实现的块沿输入维切、块内把多行混在一起取 absmax；『分组总是更好』是错的，粒度收益取决于切块轴与被隔离的 outlier 结构。
   [ok #10] 2-bit 下 per-group 比 per-channel 差（反直觉格子如实保留）
-[save] /private/tmp/nb/fq/results/fq_b_granularity.png
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/fake_quant_ste/results/fq_b_granularity.png
 [C] 重尾激活（|t(2.5)|×0.8）：不裁剪 vs 分位裁剪
  bits                方案     alpha      截断%      用到码字     rel.MSE
     2  no-clip(min-max)   63.9958    0.00%         4  7.4997e-01
@@ -78,7 +78,7 @@
     读数：裁剪的收益/代价随位宽换向。舍入误差 ∝ s²，随位宽指数下降；饱和误差 (x-α)² 与 s 无关，只由被裁掉的质量决定。
     所以**最优裁剪比例随位宽增大而缩小**：4-bit 时 0.1% 的饱和换取 4 倍分辨率是赚的，8-bit 时同一笔交易净亏。『激活必须裁剪』不是无条件成立的普适规则。
   [ok #13] 8-bit 下裁剪反而更差（按位宽分开讲，不能一概而论）
-[save] /private/tmp/nb/fq/results/fq_c_clip.png
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/fake_quant_ste/results/fq_c_clip.png
 [D] 4-bit 对称，s=0.5，可表示区间 R=[-4.0, 3.5]
     可表示区间内：STE 取值 = [1.0]
     数值差分非零占比 0.37%，非零差商 = [500.0]
@@ -89,7 +89,7 @@
     上界外仍放行？x/s=7.4→grad 1, x/s=8.0→grad 0
     下界外仍放行？x/s=-8.2→grad 1, x/s=-9.2→grad 0
   [ok #17] x 略超上界仍放行（round 仍在码字范围内），超出整整一格才切断
-  [ok #18] 下界同理：STE 的放行域比可表示区间宽半格
+  [ok #18] 下界同理：STE 的放行域比可表示区间宽一整格
 
 [D] 直通比例 P(g_STE=1)：对称 int4，q_max=7，x~U(-M, M)
     M/(s·q_max)=0.25  M= 0.875  P(g=1)=1.0000  uniform 闭式 1.0000
@@ -106,7 +106,7 @@
     注意 min-max scale 让直通率恰好是 100% —— 这不是巧合：它把最大值钉在 q_max 上，按定义没有元素越界。**但代价是分辨率最粗、舍入误差最大**。于是『梯度拿得多』与『量化误差小』在这里方向相反，这才是 QAT 里选 scale 的真实权衡。
   [ok #20] min-max scale 下 STE 直通率恒为 100%（按定义无越界元素）
   [ok #21] scale 收紧后直通比例下降（更多元素落到饱和区，拿不到梯度）
-[save] /private/tmp/nb/fq/results/fq_d_ste.png
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/fake_quant_ste/results/fq_d_ste.png
 [E] 逐张量 rel.MSE（对全浮点参考；测试集尺度是校准集 3 倍）
             张量        W4A16    W8A8-static   W8A8-dynamic
              X    0.000e+00      4.598e-02      4.108e-05
@@ -143,7 +143,7 @@
   [ok #28] 两支 scale 不同不会让输出列退化成同一个图案
   [ok #29] 各自 scale 的量化相加仍是正常量级的误差（不是语义损坏）
     读数：若『共享网格』是量化语义要求，两支 scale 不同时结果应当退化或非法；实测不是。共享 scale 的真正来源是**整数域加法**（int32 相加要求同一 scale，否则要先 requantize），那是执行层约束，不是表示层的语义约束。
-[save] /private/tmp/nb/fq/results/fq_e_insertion.png
+[save] /Users/congyuan/Desktop/Projects/sandbox/ipynbs/experiments/quantization/fake_quant_ste/results/fq_e_insertion.png
 
 ==============================================================================
 汇总
