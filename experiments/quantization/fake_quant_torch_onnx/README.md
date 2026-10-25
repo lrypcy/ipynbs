@@ -36,6 +36,12 @@ cd <本目录>
 `get_default_qat_qconfig("x86")` 逐字段打印；BN 折叠的**两种产物**；训练 40 步；
 `disable_observer` 后 scale 逐位不变而权重仍在更新。
 
+### 2b. 权重-伪量化差距的逐 step 轨迹
+`wgap()` 内部会调 `weight_fake_quant.forward`，训练态下**顺带更新观察器**——用它逐步采样
+等于边测边改被测对象。本组改用「快照 RNG → 独立复刻同一批 minibatch → 只读已物化
+qparams 算 round-trip」（`wgap_pure`，零副作用、不耗 RNG），因此不动主流随机流、
+后续各组的输出逐字不变。结论见下表：**这条差距在两种观察器状态下都不是单调上升的**。
+
 ### 3. FX graph mode QAT
 `prepare_qat_fx` 后原样打印图；统计 `activation_post_process` 节点数与真实类型；
 确认权重的伪量化**不在图上**（在 `Linear` 内部）。
@@ -61,6 +67,9 @@ cd <本目录>
 | 2 | eval 版 `fuse_modules` 在 train 模式下**报错拒绝**（`Fusion only for eval!`）；QAT 要用 `fuse_modules_qat`，产物是 **`ConvBn2d`**（BN 作为可训练子模块留在里面），而不是把 BN 抹掉 |
 | 2 | 训练 40 步后 `rel.MSE(W, FQ(W))` 从 3.7429e-03 涨到 **5.3566e-02** → 权重每步都被重新伪量化，不是「离线一次」 |
 | 2 | `disable_observer` 后再训 5 步：scale 用 `torch.equal` 断言**逐位不变**，权重仍在变 |
+| 2b | **这条差距不是「一路单调涨」**。观察器活着时：第 5 步就到 6.7455e-02、峰值 **7.0319e-02 在第 2 步**，随后回落到第 40 步 5.4800e-02（40 步里**回落 28 次**）——每步重定 scale 会把它拉回去，别把「训练越久差得越多」当成结论 |
+| 2b | **冻结 scale 也不会让它变单调**：`disable_observer` 后 5 步是 5.4800 → 5.4645 → 5.4840 → 5.5140 → 5.5167 → 5.5115e-02（仍有 2 次回落）。冻结的只是网格，权重相对固定格点仍在动，两者不是同一件事 |
+| 2b | 复刻起点与第 2 组的 `g0=3.7429e-03` **逐位一致**（`p0 == g0`），说明这套纯读取测量没有改动被测轨迹 |
 | 3 | 图上节点叫 `activation_post_process_*`，**名字里没有 FakeQuant**；真实类型 `FusedMovingAvgObsFakeQuantize`。权重侧是 `fc*.weight_fake_quant` 子模块，**图上没有独立节点** |
 | 3 | `weight_fake_quant.scale.shape` 在 `prepare` 刚结束时是占位的 **(1,)**，跑过一次前向才变成 **(32,)** |
 | 4 | **x86 Inductor quantizer 给 `nn.Linear` 的 convert 后图里 quantize 调用 = 0 处**（裸 `aten.linear`）；要显式 QDQ 必须换 XNNPACK quantizer |
@@ -86,7 +95,10 @@ cd <本目录>
    eager 与 FX、PT2E 是不同流程，`prepare_qat_fx` 之后必须训练、必须冻结 observer。
 5. **「导出成 QDQ 就是量化部署完成」** → 导出图里矩阵乘的输入仍是浮点；
    per-channel 甚至根本导不出来。
-6. **TVM 相关**（不在本实验，见文章 §7.5）：`qnn.simulated_quantize` 签名里没有
+6. **「QAT 训得越久，浮点权重离量化网格就越远（单调）」** → 2b 组逐步实测：差距在
+   第 2 步就见顶、40 步里回落 28 次；把 observer 冻结住也不会变成单调。
+   「权重每步都重新 round-trip」是对的（两个端点确实在涨），但**别把它推广成单调性**。
+7. **TVM 相关**（不在本实验，见文章 §7.5）：`qnn.simulated_quantize` 签名里没有
    `min_range`/`max_range`；annotate/calibrate/realize 属于 `relay.quantize` 而非 `relay.qnn`；
    **relay qnn 在 v0.20.0 就被删了**（commit `ccaa534b2`，2025-02-15），不是更晚。
 
@@ -95,8 +107,9 @@ cd <本目录>
 - `results/fq_g3_fx_graph.png`、`results/fq_g5_ste_domain.png`
 - 1(e)/1(f) 的数值与断言在 `results/stdout.txt` 的 `[1e]` / `[1f]` 两段，
   并写入 `results/results.json` 的 `1e_A2_int4_zeropoint` / `1f_D2_halfstep`
+- 2b 的逐 step 轨迹在 `results/stdout.txt` 的 `[2b]` 段（含峰值位置与回落次数）
 - `results/fq_qdq_model.onnx`（可直接用 `onnx.load` 打开的 QDQ 图）
 - `results/stdout.txt` / `results/results.json`
 - 执行后的 `fake_quant_torch_onnx.ipynb`（含全部输出）
 
-**断言总数：49**（全部通过）
+**断言总数：52**（全部通过）

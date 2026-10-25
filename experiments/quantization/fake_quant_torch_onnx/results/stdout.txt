@@ -129,6 +129,29 @@
 [2] disable_observer 后再训 5 步：scale 逐位不变 = True；权重仍在变 = True
   [ok #32] 冻结观察器后 scale 逐位不变（这就是 QAT 的『scale 定稿』步骤）
   [ok #33] 同一批步里权重仍在更新 —— scale 冻结与权重冻结是两件事
+
+[2b] 逐 step 轨迹（独立复刻；测量只读 qparams，不更新观察器）
+   live observer（每步都在重定 scale）：
+     step  0   rel-L2 = 3.7429e-03
+     step  5   rel-L2 = 6.7455e-02
+     step 10   rel-L2 = 6.6446e-02
+     step 15   rel-L2 = 6.1672e-02
+     step 20   rel-L2 = 6.0058e-02
+     step 25   rel-L2 = 5.4335e-02
+     step 30   rel-L2 = 4.9744e-02
+     step 35   rel-L2 = 5.1607e-02
+     step 40   rel-L2 = 5.4800e-02
+     峰值 7.0319e-02 出现在 step 2；40 步里回落 28 次
+   frozen observer（scale 逐位冻结后继续训 5 步）：
+     +0   rel-L2 = 5.4800e-02
+     +1   rel-L2 = 5.4645e-02
+     +2   rel-L2 = 5.4840e-02
+     +3   rel-L2 = 5.5140e-02
+     +4   rel-L2 = 5.5167e-02
+     +5   rel-L2 = 5.5115e-02
+  [ok #34] 观察器活着时这段差距不是单调上升：中途见顶后回落（每步重定 scale 会把它拉回去）
+  [ok #35] 冻结 scale 也不能让差距单调上升 —— 权重自己相对固定格点在动，5 步里仍有回落
+  [ok #36] 复刻起点与上面 g0 逐位一致（测量本身不改轨迹）
 [3] prepare_qat_fx 之后的图（原样输出）：
     graph():
         %x : [num_users=1] = placeholder[target=x]
@@ -142,30 +165,30 @@
         return activation_post_process_3
 
 [3] activation_post_process 节点数 = 10，真实类型 = ['FusedMovingAvgObsFakeQuantize', 'MovingAverageMinMaxObserver', 'MovingAveragePerChannelMinMaxObserver']
-  [ok #34] 图里出现的节点名是 activation_post_process —— 名字里**没有** FakeQuant
-  [ok #35] 这些节点的真实类型是 ['FusedMovingAvgObsFakeQuantize', 'MovingAverageMinMaxObserver', 'MovingAveragePerChannelMinMaxObserver']（观察器与伪量化合一）——按名字找 FakeQuant 会漏掉它们
+  [ok #37] 图里出现的节点名是 activation_post_process —— 名字里**没有** FakeQuant
+  [ok #38] 这些节点的真实类型是 ['FusedMovingAvgObsFakeQuantize', 'MovingAverageMinMaxObserver', 'MovingAveragePerChannelMinMaxObserver']（观察器与伪量化合一）——按名字找 FakeQuant 会漏掉它们
 [3] weight_fake_quant 子模块：['fc1.weight_fake_quant', 'fc1.weight_fake_quant.activation_post_process', 'fc2.weight_fake_quant', 'fc2.weight_fake_quant.activation_post_process']
-  [ok #36] 权重的伪量化发生在 Linear 模块**内部**（weight_fake_quant 子模块），图上没有独立节点 —— 只数图节点会漏掉权重量化
+  [ok #39] 权重的伪量化发生在 Linear 模块**内部**（weight_fake_quant 子模块），图上没有独立节点 —— 只数图节点会漏掉权重量化
 [3] fc1.weight_fake_quant: is_per_channel=True, ch_axis=0, scale.shape=(32,)
-  [ok #37] 权重 fake quant 是 per-channel：scale 形状 (32,) = 输出通道数 32（prepare 刚结束时它是占位的 (1,)，跑过一次前向才展开）
+  [ok #40] 权重 fake quant 是 per-channel：scale 形状 (32,) = 输出通道数 32（prepare 刚结束时它是占位的 (1,)，跑过一次前向才展开）
     → 这条是常见的实操坑：在 prepare 之后、任何前向之前读 scale，拿到的是占位形状。
 [save] /private/tmp/nb/to/results/fq_g3_fx_graph.png
 [4] PT2E prepare → 校准 → convert 完成
     模型类型：GraphModule；图里 quantize* 调用 31 处
-  [ok #38] convert_pt2e 在图上插入了 quantized_decomposed 的量化/反量化调用
+  [ok #41] convert_pt2e 在图上插入了 quantized_decomposed 的量化/反量化调用
     注意：本轮实测 x86_inductor quantizer 对 nn.Linear 的**解码模式**不做标注
     （convert 后图里是裸 aten.linear，quantize 调用 0 处）——它的目标是把量化
     留给 Inductor 后端融合，而不是产出一张可导出的 QDQ 图。要拿到显式 QDQ 表示，
     要用 XNNPACK quantizer（本实验选它）。这个差异本身就是『表示层 vs 执行层』的例子。
 [4] dynamo=False（TorchScript 导出器）→ NotImplementedError: 
-  [ok #39] PT2E 的量化模型无法用旧 TorchScript 导出器导出（quantized_decomposed 未注册 symbolic）
+  [ok #42] PT2E 的量化模型无法用旧 TorchScript 导出器导出（quantized_decomposed 未注册 symbolic）
 [4] dynamo=True 导出成功 → /private/tmp/nb/to/results/fq_qdq_model.onnx（0 字节 .data 占位已清理）
 [4] 已导出 ONNX：/private/tmp/nb/to/results/fq_qdq_model.onnx
     onnx.checker 通过；opset=20，ir_version=10（由 dynamo 导出器选定，不是我传入的 opset_version）
 
 [4] QDQ 节点统计：QuantizeLinear 3 个，DequantizeLinear 5 个
-  [ok #40] 导出的图里确实有 QuantizeLinear / DequantizeLinear 节点
-  [ok #41] Q 与 DQ 数量接近（3 vs 5）—— QDQ 是成对的表示
+  [ok #43] 导出的图里确实有 QuantizeLinear / DequantizeLinear 节点
+  [ok #44] Q 与 DQ 数量接近（3 vs 5）—— QDQ 是成对的表示
 
 [4] 逐节点清单（scale 形状 / axis / 是否 initializer）
     DequantizeLinear scale=val_1                                    shape=() axis=1 init=True
@@ -176,9 +199,9 @@
     DequantizeLinear scale=val_8                                    shape=() axis=1 init=True
     QuantizeLinear   scale=val_11                                   shape=() axis=1 init=True
     DequantizeLinear scale=val_11                                   shape=() axis=1 init=True
-  [ok #42] 全部 scale 都是 initializer（常量张量）—— 量化参数固化成图的一部分，不是可变属性
+  [ok #45] 全部 scale 都是 initializer（常量张量）—— 量化参数固化成图的一部分，不是可变属性
     zero_point 的 ONNX dtype = ['TensorProto.INT8']（枚举值 [3]）；scale 形状 = ['()']
-  [ok #43] zero_point 是 INT8 —— 与规范的『y_zero_point 与 y 同类型、其类型决定量化类型』一致
+  [ok #46] zero_point 是 INT8 —— 与规范的『y_zero_point 与 y 同类型、其类型决定量化类型』一致
     QuantizeLinear 输出的声明类型 = ['TensorProto.INT8']
 
 [4] 权重侧的表现：直接吃 initializer（int8 常量）的 DequantizeLinear 有 2 个，
@@ -186,9 +209,9 @@
     → 导出时权重的 QuantizeLinear 已被**折叠**成 int8 initializer，图上只剩 DequantizeLinear。
       这不是 bug，而是『训练图 / 表示图 / 执行图』三态差别的直接体现：训练时权重每步都要
       重新伪量化（因为权重在变），导出后权重不再变，Q 就可以吸收进常量。
-  [ok #44] 两个 Linear 的权重都以 int8 initializer + DQ 的形式出现在图上
+  [ok #47] 两个 Linear 的权重都以 int8 initializer + DQ 的形式出现在图上
     带 axis 属性的节点 8 个，但其中标量 scale 的节点 8 个 —— 两者数量相等，说明这里的 axis 是**冗余属性**。
-  [ok #45] 全部 QDQ 节点都带 axis=1，同时全部 scale 都是标量
+  [ok #48] 全部 QDQ 节点都带 axis=1，同时全部 scale 都是标量
     → 判粒度必须看 scale 的 shape，**不能只看有没有 axis**：
       axis 只在 scale 为向量（per-axis）时才有意义；ONNX 规范里 scale 是标量时
       不该带 axis，这里属于导出器写法。据此误判会把 per-tensor 图读成 per-channel。
@@ -196,17 +219,17 @@
 
 [4] 手写 QDQ 语义 vs transform 出来的图（数值一致性由 torch 侧 fake quant 对比）
     torch 量化模型前向输出 shape = (2, 4)，范围 [-0.4286, 0.6517]
-  [ok #46] 量化模型前向仍返回同样的输出形状（语义没变，只是数值被钉到网格上）
+  [ok #49] 量化模型前向仍返回同样的输出形状（语义没变，只是数值被钉到网格上）
 
     这张 ONNX 图**只是表示**：QuantizeLinear/DequantizeLinear 都是不透明算子，
     每个 Q 的输出是 int8、DQ 的输出回到 float。图中不存在『整数矩阵乘』——
     要把它们变成整数 kernel，需要下游引擎做融合与 lowering。
     证据：图里 MatMul/Gemm 的输入仍然来自 DequantizeLinear，即浮点。
     MatMul/Gemm 节点 2 个，其中输入直接来自 DequantizeLinear 的 2 个
-  [ok #47] 全部矩阵乘的输入都来自 DequantizeLinear（浮点）—— QDQ 图不等于整数 kernel 执行
+  [ok #50] 全部矩阵乘的输入都来自 DequantizeLinear（浮点）—— QDQ 图不等于整数 kernel 执行
 [4b] 同一模型换成 per-channel 配置再导出：
     失败（根因）：<class 'torch.onnx._internal.exporter._errors.DispatchError'>: No ONNX function found for <OpOverload(op='quantized_decomposed.dequantize_per_channel', overload
-  [ok #48] torch 2.10 的 dynamo ONNX 导出器没有注册 quantized_decomposed.dequantize_per_channel 的 decomposition —— per-channel 量化无法直接导出成带 axis 的 ONNX QDQ
+  [ok #51] torch 2.10 的 dynamo ONNX 导出器没有注册 quantized_decomposed.dequantize_per_channel 的 decomposition —— per-channel 量化无法直接导出成带 axis 的 ONNX QDQ
     这就是『表示层』的真实边界：ONNX 规范本身支持 per-axis（axis 属性 + 向量 scale），
     但**导出链路不一定支持**。想拿到带 axis 的 QDQ，要么换导出路径
     （onnxscript / 直接手搭 QDQ 图 / 用支持 per-channel 的旧 FX 导出），
@@ -218,5 +241,5 @@
     训练层 FQ         torch.fake_quantize_per_tensor_affine        float → float（落在网格上）         1(b)：梯度在放行域内恒 1、域外 0
     表示层 QDQ        ONNX QuantizeLinear + DequantizeLinear       float → int8 → float         4：Q 3 个 / DQ 5 个，scale 全是 initializer
     执行层 kernel     引擎融合后的整数 Gemm                                int8 × int8 → int32          4：图里 2/2 个矩阵乘输入仍来自 DQ（浮点）
-  [ok #49] 导出的 QDQ 图本身不做整数计算 —— 这是『导出 ≠ 加速』的直接证据
+  [ok #52] 导出的 QDQ 图本身不做整数计算 —— 这是『导出 ≠ 加速』的直接证据
 [save] /private/tmp/nb/to/results/fq_g5_ste_domain.png
