@@ -1,11 +1,11 @@
-"""DDPM 时间步 / 调度 / 采样器 · 七组核验（PyTorch 版）。
+"""DDPM 时间步 / 调度 / 采样器 · 八组核验（PyTorch 版）。
 
 配套博文：《DDPM 深度剖析：前向闭式、时间步与 DDIM 采样》
 （lrypcy.github.io）
 
 纯 torch + matplotlib，纯 CPU、float64。每组末尾自断言，汇总断言总数。
 用法：
-    python ddpm_lab.py                      # 全部 A、A2、B–F、H
+    python ddpm_lab.py                      # 全部 A、A2、B–F、H、W
     python ddpm_lab.py A2 C                 # 只跑指定组
     python ddpm_lab.py --figdir DIR         # 额外输出 G 组（配图）
 """
@@ -144,6 +144,34 @@ def exp_A2(T=T_DEFAULT):
     assert rel < 2e-2, f"[对数展开] 相对误差 {rel:.3e} > 2e-2"
     st.append(("对数展开 ᾱ_T ≈ exp(-Σβ - ½Σβ²)", rel))
     return 4
+
+
+# ---------------------------------------------------------------- group W
+def exp_W(T=T_DEFAULT):
+    """ELBO 的时间权重：L_simple 把每一项的系数都换成 1，丢掉的到底是什么。"""
+    print("\n[W] ELBO 的时间权重：L_simple 丢掉的是什么")
+    betas = linear_betas(T)
+    alphas, abar = cumulative(betas)
+    st = []
+
+    # 只看 t >= 2：t = 1 时 ᾱ_0 = 1，后验方差为 0，那一项由解码项 L_0 接管
+    b, a = betas[1:], alphas[1:]
+    at, ap = abar[1:], abar[:-1]
+    beta_tilde = (1.0 - ap) / (1.0 - at) * b
+    w_kernel = b ** 2 / (2.0 * beta_tilde * a * (1.0 - at))   # 从 KL 的 1/(2β̃) 推出来
+    w_closed = b / (2.0 * a * (1.0 - ap))                     # 化简后的闭式
+    assert_close("权重 β²/(2β̃ α (1-ᾱ_t)) = β/(2α(1-ᾱ_{t-1}))", w_kernel, w_closed, 1e-12, st)
+
+    cells = "  ".join(f"t={t}: {float(w_closed[t - 2]):.4f}" for t in (2, 10, 100, 500, 1000))
+    print(f"    {cells}")
+    ratio = float(w_closed[0] / w_closed[498])                # t=2 与 t=500 的比值
+    print(f"    t=2 的权重是 t=500 的 {ratio:.1f} 倍 → L_simple 等于相对抬高大 t")
+
+    assert float(w_closed.max()) < 1.0, "[权重] 不该出现大于 1 的系数"
+    st.append(("权重上界 < 1", 0.0))
+    assert 50.0 < ratio < 500.0, f"[权重比] {ratio:.1f} 不在预期量级"
+    st.append(("t=2 与 t=500 的权重比", ratio))
+    return 3
 
 
 # ---------------------------------------------------------------- group B
@@ -629,7 +657,7 @@ def main(argv):
         if a.startswith("-"):
             continue
         groups.append(a)
-    groups = groups or ["A", "A2", "B", "C", "D", "E", "F", "H"]
+    groups = groups or ["A", "A2", "B", "C", "D", "E", "F", "H", "W"]
     rng = gen(SEED)
     total = 0
     print("=" * 72)
@@ -639,7 +667,7 @@ def main(argv):
           f"torch={torch.__version__}")
     print("=" * 72)
     table = {"A": exp_A, "A2": exp_A2, "B": exp_B, "C": exp_C, "D": exp_D,
-             "E": exp_E, "F": exp_F, "H": exp_H}
+             "E": exp_E, "F": exp_F, "H": exp_H, "W": exp_W}
     for g in groups:
         total += table[g](rng) if g in ("A", "B", "C", "D", "H") else table[g]()
     if figdir:
