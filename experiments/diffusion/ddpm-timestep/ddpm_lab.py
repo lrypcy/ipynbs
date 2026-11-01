@@ -1,12 +1,12 @@
-"""DDPM 时间步 / 调度 / 采样器 · 六组核验（PyTorch 版）。
+"""DDPM 时间步 / 调度 / 采样器 · 七组核验（PyTorch 版）。
 
 配套博文：《DDPM 深度剖析：前向闭式、时间步与 DDIM 采样》
 （lrypcy.github.io）
 
 纯 torch + matplotlib，纯 CPU、float64。每组末尾自断言，汇总断言总数。
 用法：
-    python ddpm_lab.py                      # 全部 A–F + H
-    python ddpm_lab.py A C                  # 只跑指定组
+    python ddpm_lab.py                      # 全部 A、A2、B–F、H
+    python ddpm_lab.py A2 C                 # 只跑指定组
     python ddpm_lab.py --figdir DIR         # 额外输出 G 组（配图）
 """
 
@@ -108,6 +108,42 @@ def exp_A(rng, T=T_DEFAULT):
         assert_close(f"t={t:<4d} 递推均值 = sqrt(abar_t) x0", mean_emp, want_mean, 0.03, st)
         assert_close(f"t={t:<4d} 递推方差 = 1 - abar_t", var_emp, want_var, max(0.05, mc), st)
     return 10
+
+
+# ---------------------------------------------------------------- group A2
+def exp_A2(T=T_DEFAULT):
+    """方差账本：由 α_t + β_t = 1 推出的三条恒等式，以及取对数后的加性。"""
+    print("\n[A2] 方差账本：闭式推导里用到的三条代数关系")
+    betas = linear_betas(T)
+    alphas, abar = cumulative(betas)
+    abar_prev = torch.cat([torch.ones(1, dtype=torch.float64), abar[:-1]])   # ᾱ_0 = 1
+    st = []
+
+    # 两层展开：把 x_{t-2} 推到 x_t 的方差恰好是 1 - α_t α_{t-1}
+    lhs = alphas[1:] * betas[:-1] + betas[1:]
+    rhs = 1.0 - alphas[1:] * alphas[:-1]
+    assert_close("两层展开 α_t β_{t-1} + β_t = 1 - α_t α_{t-1}", lhs, rhs, 1e-12, st)
+
+    # 归纳一步：α_t (1 - ᾱ_{t-1}) + β_t = 1 - ᾱ_t
+    lhs = alphas * (1.0 - abar_prev) + betas
+    assert_close("归纳一步 α_t (1-ᾱ_{t-1}) + β_t = 1-ᾱ_t", lhs, 1.0 - abar, 1e-12, st)
+
+    # 望远镜求和：第 s 步注入的 β_s 之后被每一步 α_u 衰减，总和 = 1 - ᾱ_t
+    # ∏_{u=s+1}^{t} α_u = ᾱ_t / ᾱ_s，所以 Σ_{s≤t} β_s ∏_{u>s} α_u = ᾱ_t Σ_{s≤t} β_s/ᾱ_s
+    tel = abar * torch.cumsum(betas / abar, 0)
+    assert_close("望远镜求和 Σ_s β_s ∏_{u>s} α_u = 1-ᾱ_t", tel, 1.0 - abar, 1e-9, st)
+
+    # 取对数后 β 变加性：log ᾱ_T ≈ -Σβ - ½Σβ²
+    sum_b = float(betas.sum())
+    half_sq = float(0.5 * (betas ** 2).sum())
+    approx = float(torch.exp(torch.tensor(-sum_b - half_sq)))
+    exact = float(abar[-1])
+    rel = abs(approx - exact) / exact
+    print(f"    Σβ_s = {fmt(sum_b, 4)}，½Σβ_s² = {fmt(half_sq, 4)}，"
+          f"exp(-Σ-½Σ²) = {approx:.4e}，实测 ᾱ_T = {exact:.4e}，相对误差 {rel:.2e}")
+    assert rel < 2e-2, f"[对数展开] 相对误差 {rel:.3e} > 2e-2"
+    st.append(("对数展开 ᾱ_T ≈ exp(-Σβ - ½Σβ²)", rel))
+    return 4
 
 
 # ---------------------------------------------------------------- group B
@@ -593,7 +629,7 @@ def main(argv):
         if a.startswith("-"):
             continue
         groups.append(a)
-    groups = groups or ["A", "B", "C", "D", "E", "F", "H"]
+    groups = groups or ["A", "A2", "B", "C", "D", "E", "F", "H"]
     rng = gen(SEED)
     total = 0
     print("=" * 72)
@@ -602,7 +638,8 @@ def main(argv):
           f"cosine offset s={COS_S}，dtype={torch.get_default_dtype()}，"
           f"torch={torch.__version__}")
     print("=" * 72)
-    table = {"A": exp_A, "B": exp_B, "C": exp_C, "D": exp_D, "E": exp_E, "F": exp_F, "H": exp_H}
+    table = {"A": exp_A, "A2": exp_A2, "B": exp_B, "C": exp_C, "D": exp_D,
+             "E": exp_E, "F": exp_F, "H": exp_H}
     for g in groups:
         total += table[g](rng) if g in ("A", "B", "C", "D", "H") else table[g]()
     if figdir:
