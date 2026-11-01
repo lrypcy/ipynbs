@@ -1,6 +1,6 @@
 """DDPM 时间步 / 调度 / 采样器 · 六组核验。
 
-配套博文：《DDPM 深度剖析：时间步、噪声调度与采样器为什么长这样》
+配套博文：《DDPM 深度剖析：前向闭式、时间步与 DDIM 采样》
 （lrypcy.github.io）
 
 纯 numpy + matplotlib，纯 CPU。每组末尾自断言，汇总断言总数。

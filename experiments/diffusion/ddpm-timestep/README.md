@@ -1,6 +1,6 @@
 # ddpm-timestep：DDPM 时间步 / 调度 / 采样器的数值核验
 
-对应文章：[DDPM 深度剖析：从理论到实践](https://lrypcy.github.io/2026/11/01/ddpm-deep-dive/)
+对应文章：[DDPM 深度剖析：前向闭式、时间步与 DDIM 采样](https://lrypcy.github.io/2026/11/01/ddpm-deep-dive/)
 
 ## 要验证的论断
 
