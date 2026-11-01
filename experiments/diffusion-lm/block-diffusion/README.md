@@ -15,11 +15,15 @@
 ## 运行
 
 ```bash
-python block_diff_lab.py            # A–E 全部，约 0.3 秒
-python block_diff_lab.py A B        # 只跑指定组
+python block_diff_lab.py                 # A–E 全部，约 0.3 秒
+python block_diff_lab.py A B             # 只跑指定组
+python block_diff_lab.py B E --figdir figs   # 额外出两张图（需 matplotlib）
 ```
 
 环境：**纯 numpy**，不需要 GPU。固定种子 `20261105`，全部通过才输出 **断言总数 = 21**。
+
+两张图（`--figdir`）：`block_diff_kl.png`（KL 随组大小，含 total correlation 天花板）、
+`block_diff_cost.png`（成本比 vs 块大小，闭式曲线与实测重合）。
 
 ### 为什么是 V=4、L=6
 

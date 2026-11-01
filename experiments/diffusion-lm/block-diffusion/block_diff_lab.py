@@ -34,6 +34,7 @@ from __future__ import annotations
 import argparse
 import itertools
 import math
+import os
 import sys
 
 import numpy as np
@@ -212,7 +213,7 @@ def exp_A(joint):
 # ---------------------------------------------------------------------------
 # B 组：块大小、组大小、分组方式
 # ---------------------------------------------------------------------------
-def exp_B(joint):
+def exp_B(joint, figdir=None):
     head("B 组：块大小 / 组大小 / 分组方式各自损失多少")
 
     print("  （一）固定组大小 s=1（块内逐 token 解出），块大小无关")
@@ -248,6 +249,31 @@ def exp_B(joint):
     ok(all(v < 1e-3 for k, v in res.items() if k != "间隔 (1,3)(2,4)"),
        "另两种配对一点没损失：这块数据的耦合在距离 2 上，只被 (1,3) 这种配对撞上——"
        "所以并行分组要按数据自身的相关结构切，不能按位置平均切")
+
+    if figdir:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+
+        h_joint = entropy(joint)
+        tc_all = sum(entropy(marginal(joint, [i])) for i in range(joint.ndim)) - h_joint
+        fig, ax = plt.subplots(figsize=(4.6, 3.4), dpi=160)
+        xs = [v[0] for v in vals]
+        ys = [max(v[1], 0.0) for v in vals]
+        ax.bar([str(x) for x in xs], ys, color="#185FA5", width=0.62)
+        ax.axhline(tc_all, color="#c0392b", lw=1.2, ls="--")
+        ax.text(1.45, tc_all - 0.28, "total correlation", color="#c0392b", fontsize=8)
+        for i, y in enumerate(ys):
+            ax.text(i, y + 0.06, f"{y:.3f}" if y > 0.01 else "0", ha="center", fontsize=8)
+        ax.set_xlabel("group size $s$  (tokens unmasked per step)")
+        ax.set_ylabel("KL$(p\\,||\\,q^*)$   (nats)")
+        ax.set_title("Parallelism costs correlations, not count", fontsize=10)
+        ax.spines[["top", "right"]].set_visible(False)
+        fig.tight_layout()
+        pth = os.path.join(figdir, "block_diff_kl.png")
+        fig.savefig(pth, dpi=150)
+        plt.close(fig)
+        print(f"  -> {pth}")
     return vals, res
 
 
@@ -347,7 +373,7 @@ def exp_D(joint, rng):
 # ---------------------------------------------------------------------------
 # E 组：算力账本（以 query-key 对数为单位）
 # ---------------------------------------------------------------------------
-def exp_E():
+def exp_E(figdir=None):
     head("E 组：算力账本——固定调用次数后，块扩散的 attention 成本是全序列扩散的 B/(2L)")
 
     L_ = 1024
@@ -383,6 +409,34 @@ def exp_E():
     ok(ar < rows[0][4] * base,
        f"自回归仍然最省（{ar/base*100:.3f}%）：块扩散买的不是「更省」，"
        "是「B 个 token 同时出」")
+
+    if figdir:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+
+        Bs = [r[0] for r in rows]
+        fig, ax = plt.subplots(figsize=(4.6, 3.4), dpi=160)
+        ax.plot(Bs, [r[4] for r in rows], "o-", color="#185FA5", lw=1.4, ms=5,
+                label="block diffusion / full")
+        ax.plot(Bs, [r[5] for r in rows], "--", color="#c0392b", lw=1.0,
+                label="$B(L+B)/2L^2$")
+        ax.plot(Bs, [r[3] / base for r in rows], "s:", color="#8e44ad", lw=1.0, ms=4,
+                label="same, no KV cache")
+        ax.axhline(ar / base, color="#2ca02c", lw=0.9, ls="-.")
+        ax.text(Bs[0], ar / base * 1.25, "autoregressive", color="#2ca02c", fontsize=7.5)
+        ax.set_xscale("log", base=2)
+        ax.set_yscale("log")
+        ax.set_xlabel("block size $B$   (L=1024, same number of calls)")
+        ax.set_ylabel("attention cost relative to full diffusion")
+        ax.set_title("Blocks buy latency, not FLOPs", fontsize=10)
+        ax.legend(frameon=False, fontsize=7.5)
+        ax.spines[["top", "right"]].set_visible(False)
+        fig.tight_layout()
+        pth = os.path.join(figdir, "block_diff_cost.png")
+        fig.savefig(pth, dpi=150)
+        plt.close(fig)
+        print(f"  -> {pth}")
     return rows
 
 
@@ -390,7 +444,11 @@ def exp_E():
 def main(argv=None):
     ap = argparse.ArgumentParser(description="块扩散：可表达性与算力")
     ap.add_argument("groups", nargs="*", default=["A", "B", "C", "D", "E"])
+    ap.add_argument("--figdir", default=None)
     args = ap.parse_args(argv)
+    if args.figdir:
+        import os
+        os.makedirs(args.figdir, exist_ok=True)
     groups = [g.upper() for g in args.groups] or ["A", "B", "C", "D", "E"]
 
     print("=" * 78)
@@ -408,13 +466,13 @@ def main(argv=None):
     if "A" in groups:
         info["A"] = exp_A(joint)
     if "B" in groups:
-        info["B"] = exp_B(joint)
+        info["B"] = exp_B(joint, args.figdir)
     if "C" in groups:
         info["C"] = exp_C(joint)
     if "D" in groups:
         info["D"] = exp_D(joint, rng)
     if "E" in groups:
-        info["E"] = exp_E()
+        info["E"] = exp_E(args.figdir)
 
     print()
     print("=" * 78)
