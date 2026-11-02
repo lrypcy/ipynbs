@@ -283,6 +283,28 @@ ok(RUN[("naive", 1.0)]["r2"] > 1.5 * RUN[("ki_vlm", 1.0)]["r2"],
    f"同样步数下探针 R2 {RUN[('naive', 1.0)]['r2']:.3f} vs {RUN[('ki_vlm', 1.0)]['r2']:.3f} "
    f"（论文在真实规模上反而更快，玩具里 backbone 太小，体现不出来）")
 
+# 步数趋势：KI 到底追不追得上（玩具里追不上，这是规模问题不是机制问题）
+TREND = {}
+for tname, tsg, twa, twl in (("naive", False, 0.0, 0.0), ("ki_vlm", True, 1.0, 1.0)):
+    rows = []
+    for st in (1000, 3000, 9000):
+        P = K.clone(K.init_params(np.random.default_rng(555)))
+        for k in K.BONE:
+            P[k] = P0[k].copy()
+        P = train(P, K.ALL_P, tsg, 1.0, twa, twl, st, LR, 31)
+        rows.append((metrics(P), probe_r2(P)))
+    TREND[tname] = rows
+    print(f"  {tname:8s} " + " | ".join(
+        f"{st:5d} 步 lang={m['lang']:.3f} act={m['act']:.4f} R2={r:.3f}"
+        for st, (m, r) in zip((1000, 3000, 9000), rows)))
+ok(TREND["ki_vlm"][-1][1] < TREND["naive"][0][1],
+   f"步数趋势：KI 训到 9000 步（3 倍）主干探针 R2 {TREND['ki_vlm'][-1][1]:.3f} 仍低于 "
+   f"naive 1000 步的 {TREND['naive'][0][1]:.3f} —— 玩具里 KI 追不上，"
+   f"与论文「KI 收敛更快」方向相反（原因见文件头：玩具主干太小）")
+ok(TREND["ki_vlm"][1][0]["lang"] > TREND["naive"][1][0]["lang"] + 0.3,
+   f"但语言跟随的差距不随步数收窄：3000 步时 {TREND['naive'][1][0]['lang']:.3f} vs "
+   f"{TREND['ki_vlm'][1][0]['lang']:.3f}")
+
 # 负对照：动作只依赖当次实例，不依赖物体「名字」
 Xf = np.concatenate([sc.NAME[sc.c[:1024]], np.ones((1024, 1))], 1)
 Xe = np.concatenate([sc.NAME[sc.c[N_TRAIN:N_TRAIN + N_EVAL]], np.ones((N_EVAL, 1))], 1)
