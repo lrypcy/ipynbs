@@ -22,12 +22,18 @@
 ```bash
 python3 pi0_flow_lab.py          # 全部 A–E，约 10 秒
 python3 pi0_flow_lab.py B E      # 只跑指定组
+python3 pi0_flow_figures.py      # 生成 4 张配图到 figures/，约 5 秒
 ```
 
-环境：**纯 numpy**，无其他依赖。全部通过才输出 **断言总数 = 30**。
+环境：**纯 numpy**（配图额外需要 matplotlib，中文字体用 Hiragino Sans GB）。
+全部通过才输出 **断言总数 = 30**。
 
 `pi0_flow_lab.ipynb` 是同一份代码的 notebook 版，输出已固化；`results/stdout.txt` 是
 CPython 3.11 / numpy 2.1.1 下的完整输出，正文数字与它逐字对应。
+
+`pi0_flow_figures.py` 直接 `import pi0_flow_lab` 复用 `v_star` / `euler` / `rk4_reference`
+等函数，所以图里的数字不会和正文漂移；`figures/*.svg` 会被复制到博客仓库的
+`assets/img/pi-vla/`。
 
 ## 三处关键设定
 
