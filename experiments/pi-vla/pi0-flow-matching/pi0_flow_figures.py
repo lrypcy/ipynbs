@@ -19,7 +19,7 @@ import pi0_flow_lab as L
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "figures")
 os.makedirs(OUT, exist_ok=True)
 
-plt.rcParams["font.sans-serif"] = ["Hiragino Sans GB", "Heiti TC", "Arial Unicode MS"]
+plt.rcParams["font.sans-serif"] = ["PingFang SC", "Hiragino Sans GB", "Arial Unicode MS"]
 plt.rcParams["axes.unicode_minus"] = False
 plt.rcParams["font.size"] = 11
 plt.rcParams["axes.grid"] = True
