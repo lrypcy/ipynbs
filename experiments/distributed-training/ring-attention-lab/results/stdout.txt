@@ -1,0 +1,68 @@
+numpy 2.1.1 | seed 0
+块数 NB=8，每块 64 token，ring vs 全局 softmax 最大绝对误差 4.996e-16
+[OK] 分块 online 合并与全局 softmax 逐元素等价（float64 误差 < 1e-12）
+五种环序的最大误差： 4.44e-16, 5.55e-16, 4.44e-16, 5.55e-16, 4.44e-16
+[OK] KV 块在环上的到达次序不影响结果（合并满足交换律）
+「逐块归一后平均」的最大误差 0.1864
+同一批数据上正确实现的误差 5.00e-16，相差约 3.7e+14 倍
+[OK] 不做全局归一的分块拼接是错的，误差 O(1) 而非 O(1e-16)
+logits 放大 20 倍后：全局 max = 98.8，ring 误差 3.109e-15
+[OK] 每步减去 running max 后，极端 logits 下仍然稳定
+    序列   卡数           切法        墙钟        理想     利用率    vs 连续
+   256    4   contiguous     14368      8224   57.2%    1.00x
+   256    4       zigzag      8224      8224  100.0%    1.75x
+   256    4      striped      8320      8224   98.8%    1.73x
+  1024    8   contiguous    122944     65600   53.4%    1.00x
+  1024    8       zigzag     65600     65600  100.0%    1.87x
+  1024    8      striped     66048     65600   99.3%    1.86x
+  4096   16   contiguous   1015936    524416   51.6%    1.00x
+  4096   16       zigzag    524416    524416  100.0%    1.94x
+  4096   16      striped    526336    524416   99.6%    1.93x
+连续切法利用率：P=4 → 57.2%，P=16 → 51.6%（趋近 50%）
+[OK] 连续切法利用率低于 2/3，且卡数越多越差
+zigzag 各配置利用率： 1.0000, 1.0000, 1.0000
+[OK] zigzag 把每卡工作量配成严格相等（利用率 = 100%）
+striped 各配置利用率： 0.9885, 0.9932, 0.9964
+[OK] striped 的残余不均小于 5%
+P=16 时相对连续切法的墙钟加速：zigzag 1.94x，striped 1.93x
+[OK] zigzag 的加速比逼近理论上限 2x（Striped Attention 论文给出的极限）
+contiguous 的 token 归属： [0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3]
+zigzag      的 token 归属： [0, 0, 1, 1, 2, 2, 3, 3, 3, 3, 2, 2, 1, 1, 0, 0]
+[OK] zigzag 的归属是 [0,1,2,3,3,2,1,0] 的镜像串接：前段越靠后负载越重，后段越靠前负载越轻
+  P   ring (GB)  all-gather (GB)  Ulysses (GB)  ring/Ulysses
+  2         2.1              2.1           4.3          0.5x
+  4         3.2              3.2           2.1          1.5x
+  8         3.8              3.8           1.1          3.5x
+ 16         4.0              4.0           0.5          7.5x
+ 32         4.2              4.2           0.3         15.5x
+ring 与 all-gather 的相对差： 0.0e+00, 0.0e+00, 0.0e+00, 0.0e+00, 0.0e+00
+[OK] ring 与 all-gather 每卡字节数完全相同（差异只在能否与计算重叠）
+[OK] P=2 时 ring/Ulysses = (P-1)/2 = 0.5（Ulysses 随 P 线性变便宜）
+[OK] P=4 时 ring/Ulysses = (P-1)/2 = 1.5（Ulysses 随 P 线性变便宜）
+[OK] P=8 时 ring/Ulysses = (P-1)/2 = 3.5（Ulysses 随 P 线性变便宜）
+[OK] P=16 时 ring/Ulysses = (P-1)/2 = 7.5（Ulysses 随 P 线性变便宜）
+[OK] P=32 时 ring/Ulysses = (P-1)/2 = 15.5（Ulysses 随 P 线性变便宜）
+128K 上下文、h=8192、P=8：ring 每层每卡 3.8 GB，80 层合计 301 GB/step
+同配置 all-gather 每层每卡 3.8 GB
+[OK] 128K 下 ring 每步的通信量是数百 GB：单机带宽是硬约束，不是优化项
+                硬件   F (TF)  B (GB/s)    c_min     s_min
+     A100 + NVLink      312     300.0     1040      6240
+ A100 + InfiniBand      312      12.5    24960    149760
+            TPU v4      275     268.0     1026      6157
+     H100 + NVLink      989     450.0     2198     13187
+    H100 + IB 400G      989      25.0    39560    237360
+    B200 + NVLink5     2250     900.0     2500     15000
+A100+NVLink  c=1040（论文 1.0K）  s=6.2K（论文 6.2K）
+A100+IB      c=24960（论文 24.5K） s=149.8K（论文 149.5K）
+[OK] A100+NVLink 复现论文 Table 2 的 1.0K / 6.2K
+[OK] A100+IB 复现论文 Table 2 的 24.5K / 149.5K
+H100+NVLink 需要每卡 ≥ 13K token，H100+IB400G 需要 ≥ 237K token
+[OK] 同一代 GPU 换到 IB 后门槛抬高一个数量级以上：ring 不该跨机
+     注意力 MFU    A100+NVLink c_min    H100+NVLink c_min
+       100%                 1040                 2198
+        75%                  780                 1648
+        50%                  520                 1099
+        25%                  260                  549
+[OK] MFU 减半时最小块长减半（门槛与有效算力成正比）
+
+本 notebook 共 20 条断言全部通过。
