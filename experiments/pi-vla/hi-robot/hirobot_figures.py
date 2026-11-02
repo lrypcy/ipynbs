@@ -438,15 +438,20 @@ LAB = [0.932, 0.544, 0.412]
 SYN = [0.863, 0.620, 0.596]
 
 
-def fig_interface_data():
-    fig, axes = plt.subplots(1, 2, figsize=(12.6, 4.9))
-    ax = axes[0]
-    ax.plot(KS, ERR_K, "o-", color=C_FLAT, lw=2.0, ms=5.5,
-            label="低层没做过标签增强")
-    ax.plot([0.0, 1.0], [0.0090, ERR_AUG], "s--", color=C_HIER, lw=1.8, ms=5.5,
+def _save1(fig, name):
+    fig.tight_layout(rect=(0, 0.06, 1, 0.94))
+    fig.savefig(os.path.join(OUT, name + ".svg"), bbox_inches="tight")
+    fig.savefig(os.path.join(OUT, name + ".png"), dpi=110, bbox_inches="tight")
+    plt.close(fig)
+
+
+def fig_vocab():
+    fig, ax = plt.subplots(1, 1, figsize=(6.9, 4.9))
+    ax.plot(KS, ERR_K, "o-", color=C_FLAT, lw=2.0, ms=5.5, label="低层没做过标签增强")
+    ax.plot([0.0, 1.0], [ERR_K[0], ERR_AUG], "s--", color=C_HIER, lw=1.8, ms=5.5,
             label="低层做过标签扰动增强")
     ax.axhline(ERR_RAND, color=HINT, ls=(0, (4, 3)), lw=1.2)
-    ax.text(2.0, ERR_RAND + 0.04, f"标签完全随机 {ERR_RAND:.2f}", fontsize=9.5,
+    ax.text(2.0, ERR_RAND + 0.05, f"标签完全随机 {ERR_RAND:.2f}", fontsize=9.5,
             color=HINT, ha="right")
     ax.annotate(f"$\\kappa=1$：{ERR_K[3]:.3f} → {ERR_AUG:.3f}",
                 xy=(1.0, ERR_AUG), xytext=(0.05, 0.55), fontsize=10, color=C_HIER,
@@ -458,17 +463,22 @@ def fig_interface_data():
     ax.set_axisbelow(True)
     ax.legend(loc="lower right", frameon=False, fontsize=10.5)
     clean_axes(ax)
-    ax.set_title("C 组：高层说出的技能必须落在低层认识的措辞里", fontsize=11, color=INK, pad=8)
+    ax.set_title("高层说出的技能必须落在低层认识的措辞里", fontsize=11, color=INK, pad=8)
+    fig.suptitle("合成探针 C 组：用 4000 步训出的低层，去噪目标下测量",
+                 fontsize=11.5, color=INK, y=1.00)
+    _save1(fig, "hirobot_vocab")
 
-    ax = axes[1]
+
+def fig_synth_data():
+    fig, ax = plt.subplots(1, 1, figsize=(6.9, 4.9))
     xs = np.arange(len(GROUPS))
-    ax.bar(xs - 0.19, LAB, width=0.36, color=C_IDLE, label="只用人标注 $\\mathcal{D}_{labeled}$", zorder=3)
-    ax.bar(xs + 0.19, SYN, width=0.36, color=C_HIER, label="再加合成标注 $\\mathcal{D}_{syn}$", zorder=3)
+    ax.bar(xs - 0.19, LAB, width=0.36, color=C_IDLE, label="只用人标注", zorder=3)
+    ax.bar(xs + 0.19, SYN, width=0.36, color=C_HIER, label="再加合成标注", zorder=3)
     for i, (a, b) in enumerate(zip(LAB, SYN, strict=True)):
         ax.text(i - 0.19, a + 0.012, f"{a:.3f}", ha="center", fontsize=9, color=INK)
         ax.text(i + 0.19, b + 0.012, f"{b:.3f}", ha="center", fontsize=9, color=INK)
         d = b - a
-        ax.text(i, max(a, b) + 0.055, f"{d:+.3f}", ha="center", fontsize=10.5,
+        ax.text(i, max(a, b) + 0.058, f"{d:+.3f}", ha="center", fontsize=10.5,
                 color=(C_HIER if d > 0 else C_FLAT), fontweight="500")
     ax.set_xticks(xs)
     ax.set_xticklabels(GROUPS)
@@ -476,19 +486,14 @@ def fig_interface_data():
     ax.set_ylim(0, 1.15)
     ax.grid(axis="y", color="#EDEDEA", lw=0.7)
     ax.set_axisbelow(True)
-    ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.14), ncol=2, frameon=False,
+    ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.13), ncol=2, frameon=False,
               fontsize=10.5)
     clean_axes(ax)
-    ax.set_title("D 组：合成标注的收益集中在人标注覆盖不到的指令", fontsize=11, color=INK, pad=8)
+    ax.set_title("合成标注的收益集中在人标注覆盖不到的指令", fontsize=11, color=INK, pad=8)
     ax.text(0.01, 1.09, "头部的常见约束反而降了 0.069：合成数据稀释了它的样本份额",
             ha="left", va="center", fontsize=9.5, color=MUTE)
-
-    fig.suptitle("合成探针：2000 步、3 个 seed 平均（D 组）；C 组用 4000 步训出的低层",
-                 fontsize=12, color=INK, y=1.00)
-    fig.tight_layout(rect=(0, 0.06, 1, 0.94))
-    fig.savefig(os.path.join(OUT, "hirobot_interface_data.svg"), bbox_inches="tight")
-    fig.savefig(os.path.join(OUT, "hirobot_interface_data.png"), dpi=110, bbox_inches="tight")
-    plt.close(fig)
+    fig.suptitle("合成探针 D 组：2000 步、3 个 seed 平均", fontsize=11.5, color=INK, y=1.00)
+    _save1(fig, "hirobot_synth_data")
 
 
 if __name__ == "__main__":
@@ -499,7 +504,8 @@ if __name__ == "__main__":
                      ("hirobot_results", fig_results),
                      ("hirobot_decomposition", fig_decomposition),
                      ("hirobot_replan", fig_replan),
-                     ("hirobot_interface_data", fig_interface_data)):
+                     ("hirobot_vocab", fig_vocab),
+                     ("hirobot_synth_data", fig_synth_data)):
         if only and only not in name:
             continue
         fn()
