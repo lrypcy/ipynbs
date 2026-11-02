@@ -36,17 +36,30 @@ KI 的全部操作可以写进一个公式里：**action expert 读 backbone 的
 ## 运行
 
 ```bash
-python3 ki_lab.py        # A–D 四组，约 2.5 分钟
+python3 ki_lab.py            # A–D 四组，约 2.5 分钟
+~/Software/miniconda3/bin/python ki_figures.py          # 4 张配图，约 3 分钟
+~/Software/miniconda3/bin/python ki_figures.py --arch   # 只画两张架构图，几秒
 ```
 
-环境：**纯 numpy**。全部通过才输出 **断言总数 = 40**。
+环境：**纯 numpy**（配图额外需要 matplotlib，中文字体用 **PingFang SC**——
+Hiragino Sans GB 有静默缺字）。全部通过才输出 **断言总数 = 40**。
 
 | 文件 | 作用 |
 | --- | --- |
 | `ki_lib.py` | 共用件：2×2 块注意力 + 手写反向 + 合成世界 + Adam/SGD |
 | `ki_lab.py` | 断言版，A–D 四组，打印所有中间数字 |
 | `ki_lab.ipynb` | 同上的 notebook 版，输出已固化（由两份 .py 按函数边界生成并逐格执行） |
+| `ki_figures.py` | 4 张 SVG 配图（正文里的图都出自这里） |
 | `results/stdout.txt` | CPython 3.11.4 / numpy 2.1.1 下的完整输出，正文数字与它逐字对应 |
+
+`figures/*.svg` 会被复制到博客仓库的 `assets/img/pi-vla/`：
+
+| 图 | 内容 |
+| --- | --- |
+| `ki_gradient_paths.svg` | sg 加在 $K_b$ / $V_b$ 上的位置，以及三条梯度通路哪条被切断 |
+| `ki_attention_mask.svg` | 三块 token 的注意力掩码，标出「两类动作互不 attend」那两处 |
+| `ki_alpha_sweep.svg` | α ∈ {1,2,4,8,16,32}：断梯度后 KI 是一条水平线，不断梯度时 joint 在动 |
+| `ki_tradeoff.svg` | 六配方的语言跟随 / 动作误差，以及「完全不看 backbone」的下界 |
 
 ## 五处关键设定（都是踩出来的）
 
