@@ -20,12 +20,23 @@
 
 ```bash
 python3 fast_tokenizer_lab.py        # 全部 A–E，约 13 秒
+python3 fast_tokenizer_figures.py    # 生成 5 张配图到 figures/，约 20 秒
 ```
 
-环境：**纯 numpy**，无其他依赖。全部通过才输出 **断言总数 = 46**。
+环境：**纯 numpy**（配图额外需要 matplotlib，中文字体用 Hiragino Sans GB）。
+全部通过才输出 **断言总数 = 46**。
 
-`fast_tokenizer_lab.ipynb` 是同一份代码的 notebook 版，输出已固化；`results/stdout.txt` 是
-CPython 3.11.4 / numpy 2.1.1 下的完整输出，正文数字与它逐字对应。
+文件分工：
+
+| 文件 | 作用 |
+| --- | --- |
+| `fast_tokenizer_lib.py` | 共用件：DCT 正交矩阵、合成动作块、量化、展平、BPE |
+| `fast_tokenizer_lab.py` | 断言版，A–E 五组，打印所有中间数字 |
+| `fast_tokenizer_lab.ipynb` | 同上的 notebook 版，输出已固化 |
+| `fast_tokenizer_figures.py` | 5 张 SVG 配图（正文里的图都出自这里） |
+| `results/stdout.txt` | CPython 3.11.4 / numpy 2.1.1 下的完整输出，正文数字与它逐字对应 |
+
+`figures/*.svg` 会被复制到博客仓库的 `assets/img/pi-vla/`。
 
 ## 四处关键设定
 
