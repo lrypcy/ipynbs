@@ -170,7 +170,7 @@ f_step_reason = 2 * P_tower * n_cond
 
 print(f"  单步（只走生成塔）      {f_step_gen / 1e12:10.2f} TFLOPs")
 print(f"  一次 prefill（推理塔）  {f_prefill / 1e12:10.3f} TFLOPs")
-print(f"  整条轨迹（1 + {N_STEP} 步）   {f_all / 1e12:10.2f} TFLOPs")
+print(f"  整条轨迹（1 + {N_STEP} 步）   {f_all / 1e12:10,.2f} TFLOPs")
 print(f"  推理塔占整条轨迹        {f_prefill / f_all:10.4%}")
 print(f"  若每步都重算推理塔      {N_STEP * f_step_reason / f_all:10.4%}  （相对省 "
       f"{1 - f_prefill / (N_STEP * f_step_reason):.1%}）")

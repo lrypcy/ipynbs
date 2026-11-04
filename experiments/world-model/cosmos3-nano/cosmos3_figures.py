@@ -434,6 +434,35 @@ def fig_synergy():
     save(fig, "cosmos3_action_synergy")
 
 
+# ================================================================ 图 7 shift 曲线
+def fig_shift():
+    fig, ax = plt.subplots(figsize=(8.6, 4.6))
+    t = np.linspace(0, 1, 400)
+    for sh, color, ls in ((1.0, "#185FA5", "-"), (3.0, "#534AB7", (0, (5, 2))),
+                          (5.0, "#0F6E56", (0, (3, 2))), (10.0, "#A32D2D", (0, (1, 1.6)))):
+        sig = sh * (1 - t) / (1 + (sh - 1) * (1 - t))
+        ax.plot(t, sig, color=color, lw=1.9, linestyle=ls, label=f"s = {sh:g}")
+
+    ax.axvline(0.75, color="#BBBBB6", lw=0.9, linestyle=(0, (3, 2)))
+    for sh, color in ((1.0, "#185FA5"), (5.0, "#0F6E56")):
+        sig = sh * 0.25 / (1 + (sh - 1) * 0.25)
+        ax.plot([0.75], [sig], "o", color=color, ms=6, zorder=5)
+    ax.annotate("t=0.75：0.250 -> 0.625\n（同一个 t，噪声水平差 2.5 倍）",
+                xy=(0.75, 0.625), xytext=(0.40, 0.20), fontsize=10.0, color="#A32D2D",
+                arrowprops=dict(arrowstyle="->", color="#A32D2D", lw=1.1))
+
+    ax.set_xlabel("插值系数 t（0 = 纯噪声，1 = 干净样本）", fontsize=10.6)
+    ax.set_ylabel("实际噪声水平 sigma", fontsize=10.6)
+    ax.set_xlim(0, 1.02)
+    ax.set_ylim(0, 1.05)
+    clean_axes(ax)
+    ax.legend(frameon=False, fontsize=10.0, loc="upper right")
+    ax.set_title("shift 重参数化把采样步数往高噪声段挪，越靠低噪声端放大越猛",
+                 fontsize=11.2, color=INK, loc="left", pad=10)
+    fig.tight_layout()
+    save(fig, "cosmos3_shift")
+
+
 if __name__ == "__main__":
     fig_arch()
     fig_param_waterfall()
@@ -441,4 +470,5 @@ if __name__ == "__main__":
     fig_fps()
     fig_transfer()
     fig_synergy()
+    fig_shift()
     print("figures written to", OUT)
