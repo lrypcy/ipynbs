@@ -159,8 +159,7 @@ n_cond_text, n_cond_img = 200, latent_tokens(W_PX, H_PX, 1)
 n_cond = n_cond_text + n_cond_img
 print(f"  扩散子序列 {n_dm:,} token；条件 {n_cond:,} token（文本 {n_cond_text} + 首帧 {n_cond_img}）")
 
-P_tower = nano_two / 2 - VOCAB * VARIANTS["Nano"]["h"]     # 单塔层参数（不含共享词表）
-P_tower = layers
+P_tower = layers        # 单塔层参数；共享词表与 lm_head 不参与每步前向
 print(f"  单塔层参数 {billions(P_tower):.3f}B（embedding 与 lm_head 不进每步前向）")
 
 banner("B2 每步 FLOPs 与 reasoner 占比")
