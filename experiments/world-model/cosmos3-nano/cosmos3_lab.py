@@ -294,23 +294,27 @@ ok(abs((TPS_AUDIO / TPS_VIDEO) * (TPS_BASE / TPS_AUDIO) - TPS_BASE / TPS_VIDEO) 
 
 # ====================================================================== E 组
 # %%
-section("E. 动作账：57/29/20/10/9 维从哪来")
+section("E. 动作账：57/29/20/10/9 维从哪来（Fig. 3 的六个格）")
 EGO, EFF, GRASP_HAND, GRASP_BIN = 9, 9, 15, 1
+# 技术报告 Fig. 3 的分解规则：ego 位姿可选，每个末端是 effector 9 + grasp（15 或 1）
 ACTION_DIMS = {
-    "自动驾驶": EGO,
-    "相机运动": EGO,
-    "单臂": EGO + GRASP_BIN,
-    "双臂": EGO + 2 * (EFF + GRASP_BIN),
-    "人形": EGO + 2 * (EFF + GRASP_BIN),
-    "第一人称（双手）": EGO + 2 * (EFF + GRASP_HAND),
+    "自动驾驶": EGO,                                  # 只有 ego
+    "相机运动": EGO,                                  # 只有 ego
+    "单臂": EFF + GRASP_BIN,                          # 1 个末端，无 ego
+    "双臂": 2 * (EFF + GRASP_BIN),                    # 2 个末端，无 ego
+    "人形": EGO + 2 * (EFF + GRASP_BIN),              # 多一个 ego
+    "第一人称（双手）": EGO + 2 * (EFF + GRASP_HAND),   # 手用 15 维指尖
 }
 banner("E1 组件反算")
 for k, v in ACTION_DIMS.items():
     print(f"  {k:12s} {v:3d} 维")
 ok(ACTION_DIMS["第一人称（双手）"] == 57, "第一人称 9 + 2x(9+15) = 57")
-ok(ACTION_DIMS["双臂"] == 29, "双臂 9 + 2x(9+1) = 29")
+ok(ACTION_DIMS["人形"] == 29, "人形 9 + 2x(9+1) = 29（比双臂多的 9 就是 ego）")
+ok(ACTION_DIMS["双臂"] == 20, "双臂 2x(9+1) = 20")
 ok(ACTION_DIMS["单臂"] == 10, "单臂 9 + 1 = 10")
 ok(ACTION_DIMS["自动驾驶"] == 9 and ACTION_DIMS["相机运动"] == 9, "自驾与相机都只有 ego 9 维")
+ok(ACTION_DIMS["人形"] - ACTION_DIMS["双臂"] == EGO,
+   "人形与双臂的差恰好是一个 ego 位姿，说明这条分解规则自洽")
 
 banner("E2 6D 旋转 -> SO(3)（Gram-Schmidt + 叉乘）")
 def sixd_to_R(m):
@@ -360,7 +364,7 @@ ok(abs(np.linalg.det(R1) - 1) < 1e-12, "过参数化不破坏右手性")
 
 banner("E4 域内投影与 padding")
 print(f"  框架文档：动作 schema 5 的 normalized_unified_v1 是 59 个数，补齐到 64")
-print(f"  59 = 9(ego) + 2x(9 + 15) + 2x1(躯干) -> {9 + 2 * (9 + 15) + 2}")
+print(f"  59 - 57（双臂双手的分解）= {59 - 57}，这两维报告未说明，只记为对齐量")
 ok(59 >= ACTION_DIMS["第一人称（双手）"], "统一 schema 的 59 维覆盖第一人称的 57 维并多出 2 维")
 ok(64 % 8 == 0, "补齐到 64 是 8 的整数倍，便于按 kernel 的向量宽度对齐")
 
