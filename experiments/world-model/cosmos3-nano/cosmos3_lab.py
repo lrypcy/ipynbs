@@ -281,6 +281,18 @@ ok(gap_units / one_frame > 10000,
    "缓冲与单帧步长差四个数量级，等价于把文本与首帧的位置嵌入彻底拉开")
 
 
+banner("D4 音频与视频的密度比")
+TPS_VIDEO = T_FPS_BASE / VAE_T
+TPS_AUDIO = 48000 / 1920
+print(f"  视频 {TPS_VIDEO:.0f} tok/s，音频 {TPS_AUDIO:.0f} tok/s，密度比 {TPS_AUDIO / TPS_VIDEO:.4f}")
+print(f"  步长：视频 {TPS_BASE / TPS_VIDEO:.3f}，音频 {TPS_BASE / TPS_AUDIO:.3f}")
+print(f"  密度比 x 音频步长 = {(TPS_AUDIO / TPS_VIDEO) * (TPS_BASE / TPS_AUDIO):.4f}"
+      f"  视频步长 = {TPS_BASE / TPS_VIDEO:.4f}")
+ok(abs(TPS_AUDIO / TPS_VIDEO - 25.0 / 6.0) < 1e-12, "音频 25 tok/s 对视频 6 tok/s，密度比 4.1667")
+ok(abs((TPS_AUDIO / TPS_VIDEO) * (TPS_BASE / TPS_AUDIO) - TPS_BASE / TPS_VIDEO) < 1e-12,
+   "密度比与步长比互为倒数：两种模态在同一时间轴上占同样的长度")
+
+
 # ====================================================================== E 组
 # %%
 section("E. 动作账：57/29/20/10/9 维从哪来")

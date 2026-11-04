@@ -16,7 +16,7 @@ Cosmos 3 用一套权重同时做四件事：当 VLM 推理、当视频生成器
 ## 怎么跑
 
 ```bash
-~/Software/miniconda3/bin/python cosmos3_lab.py       # 约 2 秒，61 条断言
+~/Software/miniconda3/bin/python cosmos3_lab.py       # 约 2 秒，63 条断言
 ~/Software/miniconda3/bin/python cosmos3_figures.py   # 出 6 张图
 ```
 
@@ -52,6 +52,7 @@ Cosmos 3 用一套权重同时做四件事：当 VLM 推理、当视频生成器
 | C | 256p 的 B | 算得 25，报告 6 —— 这一格不是 token 约束 |
 | D | delta_t 与 24/FPS | 五个帧率下逐位相等 |
 | D | 5 秒的位置跨度 | 30.0000（16/24/30 FPS 全等） |
+| D | 音频 / 视频的 token 密度比 | 4.1667（25 对 6 tok/s）；步长 0.240 对 1.000 |
 | E | 6D -> SO(3) 正交误差 | 5.02e-15 |
 | E | 同一旋转的两组轴角参数距离 | 6.2832（= 2*pi） |
 | F | sigma(0) / sigma(1) | 1 / 0（四种 shift） |
@@ -75,7 +76,7 @@ D 组里 15000 这个间隔折算成 2500 秒，远超任何训练片段。它�
 
 ## 文件
 
-- `cosmos3_lab.py` — 八组账，61 条断言
+- `cosmos3_lab.py` — 八组账，63 条断言
 - `cosmos3_lab.ipynb` — 同一份代码的 notebook 形态，输出已固化
 - `cosmos3_figures.py` — 6 张图（1 张架构 + 5 张数据）
 - `figures/` — SVG 与 PNG
