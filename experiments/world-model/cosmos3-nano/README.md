@@ -16,8 +16,8 @@ Cosmos 3 用一套权重同时做四件事：当 VLM 推理、当视频生成器
 ## 怎么跑
 
 ```bash
-~/Software/miniconda3/bin/python cosmos3_lab.py       # 约 2 秒，65 条断言
-~/Software/miniconda3/bin/python cosmos3_figures.py   # 出 6 张图
+~/Software/miniconda3/bin/python cosmos3_lab.py       # 约 2 秒，67 条断言
+~/Software/miniconda3/bin/python cosmos3_figures.py   # 出 7 张图
 ```
 
 `cosmos3_lab.ipynb` 是同一份代码（按 `# %%` 切成 10 个 cell），输出已固化在文件里，
@@ -31,7 +31,7 @@ Cosmos 3 用一套权重同时做四件事：当 VLM 推理、当视频生成器
 | B | 稳态去噪时两塔各出多少力 | 480p / 189 帧 / 35 步：推理塔只占整条轨迹 FLOPs 的 **0.090%**，而它占 45.9% 的参数 |
 | C | 74K 上下文在三种分辨率下各容几个样本 | 480p 卡到 B=3、720p 卡到 B=1（与报告一致）；256p 算得 25 而报告写 6 |
 | D | FPS 调制在做什么 | 步长恒等于 24/FPS；5 秒在 16/24/30 FPS 下都落在位置 30；15000 的间隔折算是 2500 秒 |
-| E | 动作维度与旋转表示 | 57/29/20/10/9 全部可由「可选 ego 9 + 每末端 (effector 9 + grasp 15/1)」反算；6D 用双覆盖换连续性 |
+| E | 动作维度与旋转表示 | 57/29/20/10/9 全部可由「可选 ego 9 + 每末端 (effector 9 + grasp 15/1)」反算；6D 表示（取旋转矩阵前两列）连续且单射，**消掉**了轴角/四元数的双覆盖 |
 | F | rectified flow 的 shift | 四种 s 都单调可逆；s=5 在 t=0.75 处把噪声抬到 2.5 倍 |
 | G | mid-training 初始化值多少 | 500 步 24.6% vs 0.0%（冷启动）；折算成迭代数，50% 处 1.23x、90% 处 1.42x |
 | H | 跨域动作数据的迁移方向 | FD 侧 30 格非对角均值 +0.427 dB 但极不对称；ID 侧 30 格 **全部**为负（改善） |
@@ -54,8 +54,11 @@ Cosmos 3 用一套权重同时做四件事：当 VLM 推理、当视频生成器
 | D | 5 秒的位置跨度 | 30.0000（16/24/30 FPS 全等） |
 | D | 音频 / 视频的 token 密度比 | 4.1667（25 对 6 tok/s）；步长 0.240 对 1.000 |
 | E | 六个动作维度的分解 | 9 / 9 / 10 / 20 / 29 / 57，人形与双臂之差恰为 ego 9 |
-| E | 6D -> SO(3) 正交误差 | 5.02e-15 |
-| E | 同一旋转的两组轴角参数距离 | 6.2832（= 2*pi） |
+| E | 6D -> SO(3) 正交误差 | 5.02e-15，det 恒为 +1 |
+| E | 同一旋转的两组轴角参数距离 | 6.2832（= 2*pi）—— 双覆盖带来的跳变 |
+| E | 合法 6D 向量经 Gram-Schmidt 的重建误差 | 2.22e-16 —— 连续单射，没有双覆盖 |
+| E | 自由 6 维输入两次投影的差 | 0.00e+00 —— 投影多对一，丢尺度与平行分量 |
+| E | 第二列反向的两个旋转的最大元素差 | 2.000 —— 是**另一个**旋转（差 180 度），不是同一旋转的第二组参数 |
 | F | sigma(0) / sigma(1) | 1 / 0（四种 shift） |
 | F | s=5 在 t=0.75 | 0.625 vs 0.250（2.5 倍） |
 | G | 500 步成功率 | 0.0% vs 24.6% |
@@ -75,10 +78,26 @@ C 组里 256p 那一格算得 B=25 而报告写 B=6。报告的表 9 把它归�
 D 组里 15000 这个间隔折算成 2500 秒，远超任何训练片段。它只能被理解成**位置缓冲**
 （把文本末 token 与首帧 token 的位置嵌入拉开），不能读成物理时间。
 
+## 正文 ↔ 代码导航
+
+博客每一章末尾都有指向这里的锁 commit 链接；下表是从正文反查代码的索引。
+行号在这个 commit 上固定，不会随仓库更新漂移。
+
+| 正文 | 实验组（[`stdout.txt`](results/stdout.txt)） | [`cosmos3_lab.py`](cosmos3_lab.py) | notebook cell | 配图（[`cosmos3_figures.py`](cosmos3_figures.py)） |
+| --- | --- | --- | --- | --- |
+| §2 参数账 | A | [`L101`](cosmos3_lab.py#L101) | 2 | [`fig_param_waterfall()` L224](cosmos3_figures.py#L224) |
+| §3 token 排布 | —（结构图，无独立数值账） | — | — | [`fig_arch()` L113](cosmos3_figures.py#L113) |
+| §4 位置账 | D | [`L247`](cosmos3_lab.py#L247) | 5 | [`fig_fps()` L299](cosmos3_figures.py#L299) |
+| §5 动作账 | E | [`L297`](cosmos3_lab.py#L297)（旋转在 `L320`） | 6 | — |
+| §6 噪声账 | F | [`L393`](cosmos3_lab.py#L393) | 7 | [`fig_shift()` L441](cosmos3_figures.py#L441) |
+| §8 计算账 | B + C | [`L148`](cosmos3_lab.py#L148) / [`L201`](cosmos3_lab.py#L201) | 3 / 4 | [`fig_token_budget()` L265](cosmos3_figures.py#L265) |
+| §9.1 迁移对照 | G | [`L436`](cosmos3_lab.py#L436) | 8 | [`fig_transfer()` L344](cosmos3_figures.py#L344) |
+| §9.4 协同矩阵 | H | [`L510`](cosmos3_lab.py#L510) | 9 | [`fig_synergy()` L384](cosmos3_figures.py#L384) |
+
 ## 文件
 
-- `cosmos3_lab.py` — 八组账，65 条断言
-- `cosmos3_lab.ipynb` — 同一份代码的 notebook 形态，输出已固化
-- `cosmos3_figures.py` — 6 张图（1 张架构 + 5 张数据）
-- `figures/` — SVG 与 PNG
-- `results/stdout.txt` — 完整输出
+- `cosmos3_lab.py` — 八组账，67 条断言
+- `cosmos3_lab.ipynb` — 同一份代码（按 `# %%` 切成 10 个 cell），输出已固化
+- `cosmos3_figures.py` — 7 张图（1 张架构 + 6 张数据），全部手工排版，不依赖 Mermaid
+- `figures/` — 每张图的 SVG 与 PNG
+- `results/stdout.txt` — `python cosmos3_lab.py` 的完整输出

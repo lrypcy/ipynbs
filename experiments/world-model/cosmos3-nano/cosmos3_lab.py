@@ -11,8 +11,8 @@
   B 组  计算账：稳态去噪循环里，那半个塔贡献多少 FLOPs
   C 组  token 账：74K 上下文为什么在 480p 只容 B=3、720p 只容 B=1
   D 组  位置账：FPS 调制 delta_t = 24/FPS 与 15000 的间隔到底是多少秒
-  E 组  动作账：57/29/20/10/9 维从哪来；6D 旋转为什么不能用 3D
-  F 组  噪声账：rectified flow 的 shift 重参数化把质量挪到哪
+  E 组  动作账：57/29/20/10/9 维从哪来；6D 表示为什么连续（对照 3D 轴角）
+  F 组  噪声账：rectified flow 的 shift 重参数化把采样预算挪到哪
   G 组  迁移账：mid-init 相对 pre-init 的收益，早停时差多少倍
   H 组  协同账：跨域动作数据的迁移矩阵是不对称的
 
@@ -338,7 +338,7 @@ print(f"  2000 个随机 6 维输入：正交误差 max {max(errs):.2e}，det �
 ok(max(errs) < 1e-12, f"正交误差 {max(errs):.2e} 在浮点意义上为零")
 ok(abs(min(dets) - 1) < 1e-12 and abs(max(dets) - 1) < 1e-12, "行列式恒为 +1（不是镜像）")
 
-banner("E3 为什么不用 3D：轴角表示在单位旋转附近有两组相距 2*pi 的参数")
+banner("E3 为什么不用 3D：轴角有双覆盖与跳变，6D 在 SO(3) 上是连续单射")
 def rot_x(th):
     c, s = np.cos(th), np.sin(th)
     return np.array([[1, 0, 0], [0, c, -s], [0, s, c]])
@@ -355,12 +355,31 @@ ok(np.abs(R_small - R_small_alt).max() < 1e-3, "两组参数确实描述同一�
 ok(abs(np.linalg.norm(vec_a - vec_b) - 2 * np.pi) < 1e-6,
    "同一旋转的两组参数相距 2*pi：网络在原点附近无论选哪支，跨过就得跳")
 
-print(f"  6D 侧：两个第二列反向的输入给出相差 180 度的第三列，但映射本身连续、无奇异点")
-R1 = sixd_to_R(np.array([1.0, 0, 0, 0, 1.0, 0]))
+# 6D 表示指的是 SO(3) -> R^6：取旋转矩阵的前两列。它连续且单射，
+# 消掉的正是轴角 / 四元数的双覆盖；代价是网络输出的是自由 6 维向量，
+# 要经 Gram-Schmidt 投影回 SO(3)。投影会丢掉尺度与平行分量，因此
+# 「任意 R^6 输入 -> 旋转」是多对一，但这不影响表示的连续性。
+print("  6D 侧：合法输入（旋转矩阵前两列）经 Gram-Schmidt 仍重建出同一个 R")
+R_src = sixd_to_R(rng.normal(size=6))
+m6 = np.concatenate([R_src[:, 0], R_src[:, 1]])
+R_back = sixd_to_R(m6)
+print(f"    重建误差 {np.abs(R_src - R_back).max():.2e}")
+ok(np.abs(R_src - R_back).max() < 1e-12,
+   "合法 6D 向量唯一决定旋转：SO(3) -> R^6 连续单射，没有双覆盖")
+
+print("  自由 6 维输入 -> Gram-Schmidt 是多对一：第二列的尺度与平行分量被丢弃")
+m_plain = np.array([1.0, 0, 0, 0, 1.0, 0])
+m_scaled = np.array([1.0, 0, 0, 3.0, 2.0, 0])   # 加了 b1 方向分量，且长度变了
+gap = np.abs(sixd_to_R(m_plain) - sixd_to_R(m_scaled)).max()
+print(f"    两次投影的最大元素差 {gap:.2e}")
+ok(gap < 1e-12, "自由输入多对一（丢尺度与平行分量），但输出仍处处连续")
+
+print("  第二列反向给出的是另一个旋转（相差 180 度），不是同一旋转的第二组参数")
+R1 = sixd_to_R(m_plain)
 R2 = sixd_to_R(np.array([1.0, 0, 0, 0, -1.0, 0]))
 print(f"    最大元素差 {np.abs(R1 - R2).max():.3f}")
-ok(np.abs(R1 - R2).max() > 1.0, "6D 允许第二列反向（过参数化），映射是双覆盖而非一一映射")
-ok(abs(np.linalg.det(R1) - 1) < 1e-12, "过参数化不破坏右手性")
+ok(np.abs(R1 - R2).max() > 1.0, "不同前两列对应不同旋转：6D 表示是单射而非双覆盖")
+ok(abs(np.linalg.det(R2) - 1) < 1e-12, "两个结果都仍是右手系")
 
 banner("E4 域内投影与 padding")
 print(f"  框架文档：动作 schema 5 的 normalized_unified_v1 是 59 个数，补齐到 64")
@@ -371,7 +390,7 @@ ok(64 % 8 == 0, "补齐到 64 是 8 的整数倍，便于按 kernel 的向量宽
 
 # ====================================================================== F 组
 # %%
-section("F. 噪声账：rectified flow 的 shift 把质量挪到哪")
+section("F. 噪声账：rectified flow 的 shift 把采样预算挪到哪")
 def sigma_of_t(t, s):
     tb = 1.0 - t
     return s * tb / (1.0 + (s - 1.0) * tb)
@@ -556,7 +575,7 @@ print("  A 参数账：16B = 2 x 6.95B 层 + 0.62B 共享词表 + lm_head 与编
 print("  B 计算账：稳态去噪里推理塔只占 0.09% 的 FLOPs，但参数占 45.9%")
 print("  C token 账：74K 在 480p 卡到 B=3、720p 卡到 B=1，256p 不是 token 约束")
 print("  D 位置账：delta_t = 24/FPS，15000 是位置缓冲，折算是 2500 秒")
-print("  E 动作账：57/29/20/10/9 全部可由组件反算，6D 用双覆盖换连续性")
-print("  F 噪声账：shift 单调可逆，越靠低噪声端放大越猛（t=0.75 处 2.5x）")
+print("  E 动作账：57/29/20/10/9 全部可由组件反算，6D 在 SO(3) 上连续单射（消掉双覆盖）")
+print("  F 噪声账：shift 单调可逆，把预算挪向高噪声段（t=0.75 处 2.5x，非等比缩放）")
 print("  G 迁移账：500 步 24.6% vs 0.0% 是冷启动；折算迭代数只省 18% 与 29%")
 print("  H 协同账：FD 侧迁移不对称（自驾只给不拿），ID 侧 30 格全为正向")

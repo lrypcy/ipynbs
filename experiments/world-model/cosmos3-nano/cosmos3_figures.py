@@ -373,7 +373,7 @@ def fig_transfer():
     ax.set_ylabel("相对改善（%）", fontsize=10.6)
     ax.set_ylim(0, 28)
     clean_axes(ax)
-    ax.set_title("(b) 五个下游域的一致改善", fontsize=10.8, color=INK, loc="left")
+    ax.set_title("(b) 四个下游域、五项指标的一致改善", fontsize=10.8, color=INK, loc="left")
     ax.text(-0.45, 25.4, "蓝：误差类指标下降   绿：PSNR 上升", fontsize=9.4, color=HINT)
 
     fig.tight_layout()
@@ -427,10 +427,13 @@ def fig_synergy():
 
     fig.text(0.012, 0.965, "行 = 目标域，列 = 混入 50% 的辅助域；灰格是单域基线",
              fontsize=10.4, color=INK)
-    fig.text(0.012, 0.915,
-             "自驾那一行全为负（加了别域反而变差），但自驾那一列是强辅助（平均 +0.53 dB）",
+    fig.text(0.012, 0.918,
+             "自驾那一行几乎全为负（行均值 -0.078），但自驾那一列是强辅助（平均 +0.53 dB）",
              fontsize=9.8, color=MUTE)
-    fig.tight_layout(rect=(0, 0, 1, 0.89))
+    fig.text(0.012, 0.878,
+             "缩写：GR = Google Robot，WX = WidowX，F1 / F2 = 两类第一人称数据",
+             fontsize=9.4, color=HINT)
+    fig.tight_layout(rect=(0, 0, 1, 0.855))
     save(fig, "cosmos3_action_synergy")
 
 
@@ -447,7 +450,7 @@ def fig_shift():
     for sh, color in ((1.0, "#185FA5"), (5.0, "#0F6E56")):
         sig = sh * 0.25 / (1 + (sh - 1) * 0.25)
         ax.plot([0.75], [sig], "o", color=color, ms=6, zorder=5)
-    ax.annotate("t=0.75：0.250 -> 0.625\n（同一个 t，噪声水平差 2.5 倍）",
+    ax.annotate("t=0.75：0.250 → 0.625\n（同一个 t，噪声水平差 2.5 倍）",
                 xy=(0.75, 0.625), xytext=(0.40, 0.20), fontsize=10.0, color="#A32D2D",
                 arrowprops=dict(arrowstyle="->", color="#A32D2D", lw=1.1))
 
@@ -457,7 +460,7 @@ def fig_shift():
     ax.set_ylim(0, 1.05)
     clean_axes(ax)
     ax.legend(frameon=False, fontsize=10.0, loc="upper right")
-    ax.set_title("shift 重参数化把采样步数往高噪声段挪，越靠低噪声端放大越猛",
+    ax.set_title("shift 重参数化把采样预算挪向高噪声段：sigma 被抬高，但不是等比缩放",
                  fontsize=11.2, color=INK, loc="left", pad=10)
     fig.tight_layout()
     save(fig, "cosmos3_shift")
