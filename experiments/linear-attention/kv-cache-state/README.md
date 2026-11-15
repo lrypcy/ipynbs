@@ -6,14 +6,16 @@
 纯 CPU numpy 合成探针，固定 seed `20261105`。**七个分组各自带断言，最后一个 cell 打印断言总数
 （58/58）**。`linear_attn_kv_cache_lab.ipynb` 已跑出全部输出，点开 GitHub 就能看到结果；
 `.py` 是同一份源码（按 `# %%` 切 cell 生成 notebook），`results/stdout.txt` 是它的完整输出，
-`linear_attn_figures.py` 从 stdout 解析数字出三张 SVG。
+`linear_attn_figures.py` 从 stdout 解析数字出三张数值 SVG；
+`fig4_gram_interference.py` 另出一张 Gram 串扰结构示意图（结构示意，非论文原图）。
 
 ## 怎么跑
 
 ```bash
 ~/Software/miniconda3/bin/python linear_attn_kv_cache_lab.py   # 约 3 秒，58 条断言
 ~/Software/miniconda3/bin/python make_notebook.py              # 重新生成并执行 .ipynb
-~/Software/miniconda3/bin/python linear_attn_figures.py        # 出 3 张 SVG 到 figures/
+~/Software/miniconda3/bin/python linear_attn_figures.py        # 出 3 张数值 SVG 到 figures/
+~/Software/miniconda3/bin/python fig4_gram_interference.py     # 出 1 张 Gram 串扰示意图
 ```
 
 ## 七组账
@@ -46,10 +48,12 @@
 - `linear_attn_kv_cache_lab.ipynb` —— 代码与输出并排（10 个 cell）
 - `linear_attn_kv_cache_lab.py` / `make_notebook.py` —— 可复现源码与 notebook 生成器
 - `results/stdout.txt` —— 完整固化输出，正文与图上的数字都从这儿回填
-- `linear_attn_figures.py` / `figures/*.svg` —— 三张自画 SVG（数值直接解析 stdout）
+- `linear_attn_figures.py` / `figures/*.svg` —— 三张数值自画 SVG（数字直接解析 stdout）
   1. `fig1_cache_ledger.svg` 缓存账本曲线与 T\*
   2. `fig2_state_vs_kv.svg` softmax KV 列表 vs 固定矩阵状态
   3. `fig3_capacity_chunk.svg` 容量碰撞与 chunk 两笔账
+- `fig4_gram_interference.py` / `figures/fig4_gram_interference.svg` —— Gram 串扰结构示意图，
+  对应正文 §4 的 `G = K Kᵀ`；格子是结构示意不标实验数值，只引用组 3 的两个读回误差
 
 ## 边界
 
