@@ -33,9 +33,9 @@ nb.metadata = {
 
 intro = cells[0].strip().strip('"""').strip()
 out_cells = [nbformat.v4.new_markdown_cell(
-    "# 并行草稿与自适应验证：五个可核验的合成探针\n\n"
+    "# 并行草稿与自适应验证：六个可核验的合成探针\n\n"
     + intro + "\n\n"
-    "纯 CPU / numpy / 固定 seed 20261117。五组各自带断言，最后一格打印断言总数。"
+    "纯 CPU / numpy / 固定 seed 20261117。六组各自带断言，最后一格打印断言总数。"
     "配套文章见 `README.md`；`results/stdout.txt` 是同一份代码的完整输出。"
 )]
 

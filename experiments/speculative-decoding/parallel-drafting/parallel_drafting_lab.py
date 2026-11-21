@@ -8,6 +8,7 @@
 组 3  树验证的祖先掩码矩阵，逐格对照八节点候选树
 组 4  置信度调度只截断候选前缀时，输出分布是否仍等于目标分布（蒙特卡洛）
 组 5  margin 接受规则放宽到什么程度开始有损（TV 距离扫描）
+组 6  前缀接受率与条件接受率的口径对照 + 多分布 margin-TV + 批大小相关的最优 K
 
 运行：~/Software/miniconda3/bin/python parallel_drafting_lab.py
 切 notebook：~/Software/miniconda3/envs/torch/bin/python make_notebook.py
@@ -275,9 +276,93 @@ def g5_margin_lossy():
 
 
 # %%
+def g6_statistics_and_joint_model():
+    section("组 6｜统计口径与联合模型：前缀率、多分布 TV、批大小相关的 K*")
+
+    # ---- 6a. 前缀接受率 u_i 与条件接受率 s_i ----
+    # Red Hat 的 Pos 1..7 满足 1+Σ = Avg Length，说明它是「第 i 个位置仍在链上的概率」= 前缀接受率 u_i
+    u = np.array([0.749, 0.499, 0.319, 0.204, 0.131, 0.085, 0.055])
+    s = np.empty_like(u)               # 条件接受率 s_i = u_i / u_{i-1}
+    s[0] = u[0]
+    s[1:] = u[1:] / u[:-1]
+    u_from_s = np.cumprod(s)           # 反算：u_i = Π_{j<=i} s_j
+    print("前缀接受率 u_i (Red Hat Pos 1-7):", np.round(u, 4))
+    print("条件接受率 s_i = u_i/u_(i-1)     :", np.round(s, 4))
+    print("由 s 连乘反算 u                 :", np.round(u_from_s, 4))
+    print(f"u 与 Πs 的最大差: {np.abs(u - u_from_s).max():.2e}")
+    # 若误把 u 当成条件率再连乘一次，会得到显著偏小的「伪前缀率」
+    u_wrong = np.cumprod(u)
+    e_t = 1.0 + u.sum()                # 正确的每轮产出
+    e_wrong = 1.0 + u_wrong.sum()      # 误用连乘的结果
+    print(f"正确 E[L]=1+Σu = {e_t:.4f}（= 官方 3.044）")
+    print(f"误把 u 当 s 连乘: E[L]={e_wrong:.4f}，低估 {(e_t-e_wrong)/e_t*100:.1f}%")
+    check(np.abs(u - u_from_s).max() < 1e-10, "组6a u_i = Π s_j 逐项成立")
+    check(e_wrong < e_t - 0.3, "组6b 误用条件率连乘会显著低估每轮产出")
+
+    # ---- 6b. 多分布下的 margin-TV：同样阈值，偏差完全不同，且非单调 ----
+    def margin_tv_curve(p):
+        p = np.asarray(p, dtype=float)
+        q = np.array([0.40, 0.45, 0.15]) if len(p) == 3 else p * 0.7 + 0.3 / len(p)
+        q = q / q.sum()
+        m = p / p.max()
+
+        def out_dist(tau):
+            out = np.zeros(len(p))
+            for x in range(len(p)):
+                for y in range(len(p)):
+                    prob = q[x] * p[y]
+                    # margin 放行「mismatch 候选」（x != target 采样 y）；x==y 本就接受
+                    # 注意判据是严格 > tau：top-1 的 margin=1，只有 tau<1 才被放行，tau=1 退回严格采样
+                    if x == y or m[x] > tau:
+                        out[x] += prob
+                    else:
+                        out[y] += prob
+            return out
+
+        return [tv(out_dist(t), p) for t in [1.00, 0.98, 0.95, 0.92, 0.85, 0.50]]
+
+    taus = [1.00, 0.98, 0.95, 0.92, 0.85, 0.50]
+    dists = {
+        "p1=[.51,.47,.02]": [0.51, 0.47, 0.02],
+        "p2=[.80,.15,.05]": [0.80, 0.15, 0.05],
+        "p3=[.40,.35,.25]": [0.40, 0.35, 0.25],
+    }
+    print(f"\n{'τ':>6} | " + " | ".join(f"{k:>18}" for k in dists))
+    curves = {}
+    for name, p in dists.items():
+        curves[name] = margin_tv_curve(p)
+    for i, t in enumerate(taus):
+        print(f"{t:>6.2f} | " + " | ".join(f"{curves[k][i]:>18.5f}" for k in dists))
+    # 同一阈值 0.92 下，不同分布的 TV 差异明显
+    tv_at_92 = [curves[k][3] for k in dists]
+    print(f"τ=0.92 三个分布的 TV: {np.round(tv_at_92, 5)}，极差 {max(tv_at_92)-min(tv_at_92):.5f}")
+    check(max(tv_at_92) - min(tv_at_92) > 0.01, "组6c 同一阈值对不同分布的偏差差异显著")
+    check(all(c[0] < 1e-12 for c in curves.values()), "组6d τ=1 时三种分布都退回无损")
+    check(curves["p1=[.51,.47,.02]"][3] < curves["p1=[.51,.47,.02]"][1],
+          "组6e p1 的 TV 非单调（放宽后反降）")
+
+    # ---- 6c. Verify 成本依赖批次：最优 K 随 B 移动 ----
+    # 每轮产出用前缀率 u；验证成本 = 1 + c_b + β(B)·K，β 随 batch 增大
+    Ks = np.arange(1, 13)
+    def produced(K):
+        K = int(K)
+        return 1.0 + u[:K].sum()
+    print(f"\n{'B':>5} | {'β(B)':>6} | {'K*':>3} | {'S*':>7}")
+    kstar = []
+    for B in (1, 16, 64, 256):
+        beta = 0.02 * (1 + 0.35 * np.log2(max(B, 1)))   # 批次越大，每多验一个 token 越贵
+        S = np.array([produced(K) / (1 + 0.08 + beta * K) for K in Ks])
+        k_opt = int(Ks[S.argmax()])
+        kstar.append(k_opt)
+        print(f"{B:>5} | {beta:>6.4f} | {k_opt:>3} | {S.max():>7.4f}")
+    check(kstar[0] > kstar[-1], "组6f 批次增大时最优 K 单调不增")
+    assert np.abs(u - u_from_s).max() < 1e-10 and kstar[0] > kstar[-1]
+
+
+# %%
 def main():
     for g in (g1_acceptance_curve, g2_cost_shape, g3_tree_mask,
-              g4_confidence_truncation, g5_margin_lossy):
+              g4_confidence_truncation, g5_margin_lossy, g6_statistics_and_joint_model):
         g()
     print("\n" + "=" * 72)
     print(f"总计 {len(OK)}/{len(OK) + len(FAIL)} 条断言通过")
