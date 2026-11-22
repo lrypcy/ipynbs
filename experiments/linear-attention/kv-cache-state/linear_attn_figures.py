@@ -40,8 +40,8 @@ def txt(x, y, s, size=12, fill=INK, anchor="start", weight="normal"):
 
 def sub(s):
     """下标：SVG 由 <img> 加载，MathJax 进不去，必须用 tspan 显式排版。"""
-    # baseline-shift="sub" 默认偏低，dy 抬回约 0.08em，仍是清晰下标
-    return f'<tspan baseline-shift="sub" dy="-0.08em" font-size="0.72em">{s}</tspan>'
+    # baseline-shift="sub" 默认偏低，dy 抬回 0.16em，仍是清晰下标
+    return f'<tspan baseline-shift="sub" dy="-0.16em" font-size="0.72em">{s}</tspan>'
 
 
 def sup(s):
